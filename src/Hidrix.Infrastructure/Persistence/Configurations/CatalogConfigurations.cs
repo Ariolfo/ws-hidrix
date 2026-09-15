@@ -61,6 +61,9 @@ public class HidrtbSensorConfiguration : IEntityTypeConfiguration<HidrtbSensor>
         builder.Property(x => x.SensActivo).HasColumnName("Sens_Activo");
         builder.Property(x => x.SensFechaCreacion).HasColumnName("Sens_FechaCreacion");
         builder.Property(x => x.SensFechaActualizacion).HasColumnName("Sens_FechaActualizacion");
+        builder.Property(x => x.SensCcEstimado).HasColumnName("Sens_CCEstimado").HasPrecision(5, 2);
+        builder.Property(x => x.SensMetodoCc).HasColumnName("Sens_MetodoCC").HasMaxLength(50);
+        builder.Property(x => x.SensFechaEstimacionCc).HasColumnName("Sens_FechaEstimacionCC");
         builder.HasIndex(x => x.SensNombre).IsUnique();
         builder.HasOne(x => x.Red).WithMany(r => r.Sensores).HasForeignKey(x => x.RedId);
         builder.HasOne(x => x.Cultivo).WithMany(c => c.Sensores).HasForeignKey(x => x.CultId);

@@ -22,14 +22,19 @@ public class GetStationSensorsQueryHandler : IRequestHandler<GetStationSensorsQu
 {
     private readonly IVisualitiClient _visualiti;
     private readonly ISensorCatalogService _catalog;
+    private readonly IVisualitiStationEnricher _enricher;
 
     /// <summary>
     /// Inicializa el handler.
     /// </summary>
-    public GetStationSensorsQueryHandler(IVisualitiClient visualiti, ISensorCatalogService catalog)
+    public GetStationSensorsQueryHandler(
+        IVisualitiClient visualiti,
+        ISensorCatalogService catalog,
+        IVisualitiStationEnricher enricher)
     {
         _visualiti = visualiti;
         _catalog = catalog;
+        _enricher = enricher;
     }
 
     /// <summary>
@@ -75,6 +80,8 @@ public class GetStationSensorsQueryHandler : IRequestHandler<GetStationSensorsQu
 
             responseStationId = request.StationId;
         }
+
+        sensors = (await _enricher.EnrichManyAsync(sensors, cancellationToken)).ToList();
 
         var latest = new Dictionary<string, VisualitiReading?>(StringComparer.Ordinal);
         await Parallel.ForEachAsync(

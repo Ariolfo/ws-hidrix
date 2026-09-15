@@ -237,4 +237,28 @@ public class CatalogSensorsController : ControllerBase
             return NotFound(ApiResponse<object>.Fail(ex.Message));
         }
     }
+
+    /// <summary>Guarda CC estimada, método y fecha en HidrtbSensor.</summary>
+    [HttpPatch("{id:int}/estimated-field-capacity")]
+    [ProducesResponseType(typeof(ApiResponse<CatalogSensorDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<CatalogSensorDto>>> SaveEstimatedFieldCapacity(
+        int id,
+        [FromBody] SaveEstimatedFieldCapacityRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var data = await _sensors.SaveEstimatedFieldCapacityAsync(id, request, cancellationToken);
+            return Ok(ApiResponse<CatalogSensorDto>.Ok(data, "CC estimada guardada"));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponse<CatalogSensorDto>.Fail(ex.Message));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiResponse<CatalogSensorDto>.Fail(ex.Message));
+        }
+    }
 }

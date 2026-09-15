@@ -115,6 +115,28 @@ public sealed class CatalogSensorDto
 
     /// <summary>Finca.</summary>
     public string? Farm { get; set; }
+
+    /// <summary>CC estimada (%).</summary>
+    public double? EstimatedFieldCapacity { get; set; }
+
+    /// <summary>Método de estimación de CC.</summary>
+    public string? EstimationMethod { get; set; }
+
+    /// <summary>Fecha de estimación de CC (UTC).</summary>
+    public DateTime? EstimationDate { get; set; }
+}
+
+/// <summary>Guarda CC estimada en el sensor.</summary>
+public sealed class SaveEstimatedFieldCapacityRequest
+{
+    /// <summary>Capacidad de campo estimada (%).</summary>
+    public double FieldCapacity { get; set; }
+
+    /// <summary>Método (SWDP-R, SWDP-K, R-SAX).</summary>
+    public string Method { get; set; } = string.Empty;
+
+    /// <summary>Fecha de estimación (opcional; UTC si se omite).</summary>
+    public DateTime? EstimatedAt { get; set; }
 }
 
 /// <summary>Request para crear/actualizar sensor manualmente.</summary>

@@ -12,7 +12,7 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
-for f in 001_create_database.sql 006_rename_to_dbhidrix.sql 002_tables.sql 003_seed_geo.sql 004_seed_colombia_geo_full.sql 005_drop_bug_add_serilog_log.sql 007_tables_catalog.sql 008_seed_catalog.sql 009_normalize_geo_fk.sql 010_seed_ecuador_honduras.sql 012_prepare_identity.sql 013_tables_calculo_riego.sql 014_tables_nota_evento_riego.sql 015_nota_evento_riego_ciudad.sql; do
+for f in 001_create_database.sql 006_rename_to_dbhidrix.sql 002_tables.sql 003_seed_geo.sql 004_seed_colombia_geo_full.sql 005_drop_bug_add_serilog_log.sql 007_tables_catalog.sql 008_seed_catalog.sql 009_normalize_geo_fk.sql 010_seed_ecuador_honduras.sql 012_prepare_identity.sql 013_tables_calculo_riego.sql 014_tables_nota_evento_riego.sql 015_nota_evento_riego_ciudad.sql 016_sensor_cc_estimation.sql; do
   echo "==> $f"
   docker cp "$ROOT/database/init/$f" "$CONTAINER:/tmp/$f"
   docker exec "$CONTAINER" /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$SA_PASSWORD" -b -i "/tmp/$f"

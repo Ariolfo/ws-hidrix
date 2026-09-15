@@ -205,6 +205,48 @@ public sealed class SensorCatalogService : ISensorCatalogService
     }
 
     /// <inheritdoc />
+    public async Task<CatalogSensorDto> SaveEstimatedFieldCapacityAsync(
+        int id,
+        SaveEstimatedFieldCapacityRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.FieldCapacity is < 0 or > 100)
+        {
+            throw new ArgumentException("La CC estimada debe estar entre 0 y 100 %.");
+        }
+
+        var method = (request.Method ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(method))
+        {
+            throw new ArgumentException("El método de estimación es obligatorio.");
+        }
+
+        var entity = await _db.Sensores
+            .Include(s => s.Red)!.ThenInclude(r => r!.Pais)
+            .Include(s => s.Cultivo)
+            .FirstOrDefaultAsync(s => s.SensId == id && s.SensActivo, cancellationToken)
+            ?? throw new KeyNotFoundException($"No existe el sensor {id}.");
+
+        var estimatedAt = request.EstimatedAt ?? DateTime.UtcNow;
+        if (estimatedAt.Kind == DateTimeKind.Unspecified)
+        {
+            estimatedAt = DateTime.SpecifyKind(estimatedAt, DateTimeKind.Utc);
+        }
+        else if (estimatedAt.Kind == DateTimeKind.Local)
+        {
+            estimatedAt = estimatedAt.ToUniversalTime();
+        }
+
+        entity.SensCcEstimado = Math.Round((decimal)request.FieldCapacity, 2);
+        entity.SensMetodoCc = method;
+        entity.SensFechaEstimacionCc = estimatedAt;
+        entity.SensFechaActualizacion = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return ToDto(entity);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<NetworkDto>> ListNetworksAsync(CancellationToken cancellationToken = default)
     {
         return await _db.Redes.AsNoTracking()
@@ -236,7 +278,8 @@ public sealed class SensorCatalogService : ISensorCatalogService
             s.Red?.Pais?.PaisNombre,
             s.SensLatitud.HasValue ? (double)s.SensLatitud.Value : null,
             s.SensLongitud.HasValue ? (double)s.SensLongitud.Value : null,
-            s.SensCanales <= 0 ? SensorCatalog.DefaultChannels : s.SensCanales);
+            s.SensCanales <= 0 ? SensorCatalog.DefaultChannels : s.SensCanales,
+            s.Red?.PaisId);
 
     private static CatalogSensorDto ToDto(HidrtbSensor s) => new()
     {
@@ -253,5 +296,8 @@ public sealed class SensorCatalogService : ISensorCatalogService
         SensorStatus = s.SensEstado,
         Connectivity = s.SensConectividad,
         Farm = s.SensFinca,
+        EstimatedFieldCapacity = s.SensCcEstimado.HasValue ? (double)s.SensCcEstimado.Value : null,
+        EstimationMethod = s.SensMetodoCc,
+        EstimationDate = s.SensFechaEstimacionCc,
     };
 }

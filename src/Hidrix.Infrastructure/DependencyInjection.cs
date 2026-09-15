@@ -114,6 +114,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddSingleton<IAuthSettings, AuthSettings>();
         services.AddSingleton<IVisualitiMoistureCache, VisualitiMoistureCache>();
+        services.AddScoped<IVisualitiStationEnricher, VisualitiStationEnricher>();
 
         var visualiti = configuration.GetSection(VisualitiOptions.SectionName).Get<VisualitiOptions>()
                         ?? new VisualitiOptions();

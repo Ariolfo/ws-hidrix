@@ -1,5 +1,7 @@
 namespace Hidrix.Application.DTOs;
 
+using Hidrix.Application.Services;
+
 /// <summary>Usuario expuesto en autenticación.</summary>
 public class UserDto
 {
@@ -172,6 +174,9 @@ public class SensorDto
 
     /// <summary>Longitud.</summary>
     public double? Longitude { get; set; }
+
+    /// <summary>Zona horaria IANA del país de la red (p. ej. America/Bogota).</summary>
+    public string TimeZoneId { get; set; } = CountryTimeZoneResolver.DefaultTimeZoneId;
 }
 
 /// <summary>Estación (finca o sensor suelto).</summary>

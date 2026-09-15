@@ -33,14 +33,19 @@ public class GetNearbyStationsQueryHandler : IRequestHandler<GetNearbyStationsQu
 {
     private readonly IVisualitiClient _visualiti;
     private readonly ISensorCatalogService _catalog;
+    private readonly IVisualitiStationEnricher _enricher;
 
     /// <summary>
     /// Inicializa el handler.
     /// </summary>
-    public GetNearbyStationsQueryHandler(IVisualitiClient visualiti, ISensorCatalogService catalog)
+    public GetNearbyStationsQueryHandler(
+        IVisualitiClient visualiti,
+        ISensorCatalogService catalog,
+        IVisualitiStationEnricher enricher)
     {
         _visualiti = visualiti;
         _catalog = catalog;
+        _enricher = enricher;
     }
 
     /// <summary>
@@ -50,7 +55,11 @@ public class GetNearbyStationsQueryHandler : IRequestHandler<GetNearbyStationsQu
         GetNearbyStationsQuery request,
         CancellationToken cancellationToken)
     {
-        var geolocated = await _catalog.ListGeolocatedSensorsAsync(cancellationToken);
+        var allSensors = await _catalog.ListSensorsAsync(cancellationToken);
+        var enriched = await _enricher.EnrichManyAsync(allSensors, cancellationToken);
+        var geolocated = enriched
+            .Where(s => s.Latitud is not null && s.Longitud is not null)
+            .ToList();
 
         IEnumerable<(PhysicalSensor Sensor, double Dist)> scored;
         if (request.AllGeolocated)

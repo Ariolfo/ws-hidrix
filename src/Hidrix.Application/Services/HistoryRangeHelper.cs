@@ -29,13 +29,31 @@ public static class HistoryRangeHelper
     /// Calcula el inicio UTC del rango.
     /// </summary>
     /// <param name="rangeKey">today|7d|30d|6m.</param>
-    /// <returns>Instantánea de inicio.</returns>
-    public static DateTimeOffset ToSince(string rangeKey)
+    /// <param name="timeZoneId">Zona IANA del país del sensor (para <c>today</c>).</param>
+    /// <returns>Instantánea de inicio en UTC.</returns>
+    public static DateTimeOffset ToSince(string rangeKey, string? timeZoneId = null)
     {
         var now = DateTimeOffset.UtcNow;
-        return Normalize(rangeKey) switch
+        var normalized = Normalize(rangeKey);
+        if (normalized == "today")
         {
-            "today" => new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero),
+            var tz = CountryTimeZoneResolver.GetTimeZone(
+                timeZoneId ?? CountryTimeZoneResolver.DefaultTimeZoneId);
+            var localNow = TimeZoneInfo.ConvertTime(now, tz);
+            var localMidnight = new DateTime(
+                localNow.Year,
+                localNow.Month,
+                localNow.Day,
+                0,
+                0,
+                0,
+                DateTimeKind.Unspecified);
+            var offset = tz.GetUtcOffset(localMidnight);
+            return new DateTimeOffset(localMidnight, offset);
+        }
+
+        return normalized switch
+        {
             "7d" => now.AddDays(-7),
             "30d" => now.AddDays(-30),
             _ => now.AddDays(-180),

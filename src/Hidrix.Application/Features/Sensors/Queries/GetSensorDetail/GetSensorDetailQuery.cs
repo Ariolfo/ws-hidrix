@@ -22,14 +22,19 @@ public class GetSensorDetailQueryHandler : IRequestHandler<GetSensorDetailQuery,
 {
     private readonly IVisualitiClient _visualiti;
     private readonly ISensorCatalogService _catalog;
+    private readonly IVisualitiStationEnricher _enricher;
 
     /// <summary>
     /// Inicializa el handler.
     /// </summary>
-    public GetSensorDetailQueryHandler(IVisualitiClient visualiti, ISensorCatalogService catalog)
+    public GetSensorDetailQueryHandler(
+        IVisualitiClient visualiti,
+        ISensorCatalogService catalog,
+        IVisualitiStationEnricher enricher)
     {
         _visualiti = visualiti;
         _catalog = catalog;
+        _enricher = enricher;
     }
 
     /// <summary>
@@ -39,6 +44,8 @@ public class GetSensorDetailQueryHandler : IRequestHandler<GetSensorDetailQuery,
     {
         var sensor = await _catalog.GetSensorAsync(request.SensorId, cancellationToken)
                      ?? throw new NotFoundException($"Sensor no encontrado: {request.SensorId}");
+
+        sensor = await _enricher.EnrichAsync(sensor, cancellationToken);
 
         var (_, channel) = SensorCatalog.SplitLogicalId(request.SensorId);
         var reading = await _visualiti.GetLatestReadingCachedAsync(sensor.Serial, cancellationToken);

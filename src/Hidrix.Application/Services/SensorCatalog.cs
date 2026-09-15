@@ -18,13 +18,20 @@ public sealed class PhysicalSensor
         string? pais = null,
         double? latitud = null,
         double? longitud = null,
-        int canales = SensorCatalog.DefaultChannels)
+        int canales = SensorCatalog.DefaultChannels,
+        int? countryId = null,
+        string? timeZoneId = null)
     {
         Serial = serial;
         Red = red;
         Cultivo = cultivo;
         Finca = finca;
         Pais = pais;
+        CountryId = countryId;
+        TimeZoneId = timeZoneId
+            ?? (countryId is int id
+                ? CountryTimeZoneResolver.ResolveForCountryId(id)
+                : CountryTimeZoneResolver.ResolveForCountryName(pais));
         Latitud = latitud;
         Longitud = longitud;
         Canales = canales;
@@ -45,6 +52,12 @@ public sealed class PhysicalSensor
     /// <summary>País.</summary>
     public string? Pais { get; }
 
+    /// <summary>Id del país (catálogo geo).</summary>
+    public int? CountryId { get; }
+
+    /// <summary>Zona horaria IANA del país de la red.</summary>
+    public string TimeZoneId { get; }
+
     /// <summary>Latitud WGS84.</summary>
     public double? Latitud { get; }
 
@@ -53,53 +66,36 @@ public sealed class PhysicalSensor
 
     /// <summary>Canales lógicos expuestos.</summary>
     public int Canales { get; }
+
+    /// <summary>
+    /// Copia con datos en vivo de Visualiti (canales, coordenadas).
+    /// </summary>
+    public PhysicalSensor WithLiveData(
+        int? canales = null,
+        double? latitud = null,
+        double? longitud = null) =>
+        new(
+            Serial,
+            Red,
+            Cultivo,
+            Finca,
+            Pais,
+            latitud ?? Latitud,
+            longitud ?? Longitud,
+            canales ?? Canales,
+            CountryId,
+            TimeZoneId);
 }
 
 /// <summary>
-/// Catálogo estático de sensores Hidrix.
+/// Utilidades de identificadores y distancia para sensores Visualiti M###.
 /// </summary>
 public static partial class SensorCatalog
 {
-    /// <summary>Canales lógicos por defecto.</summary>
+    /// <summary>Canales lógicos por defecto si Visualiti no responde.</summary>
     public const int DefaultChannels = 2;
 
     private static readonly Regex LogicalIdRegex = MyLogicalIdRegex();
-
-    private static readonly PhysicalSensor[] Sensors =
-    [
-        // Colombia — RED ASORUT
-        new("M312", "RED ASORUT", "Lima ácida Tahiti", "Finca El Vergel", "COLOMBIA", 4.53281, -76.0704),
-        new("M313", "RED ASORUT", "Lima ácida Tahiti", "Finca El Vergel", "COLOMBIA", 4.53297, -76.0704),
-        new("M314", "RED ASORUT", "Lima ácida Tahiti", "Finca El Vergel", "COLOMBIA", 4.53314, -76.07039),
-        new("M315", "RED ASORUT", "Aguacate", null, "COLOMBIA"),
-        new("M316", "RED ASORUT", "Aguacate", "Finca San Antonio", "COLOMBIA", 4.52198, -76.07732),
-        new("M317", "RED ASORUT", "Aguacate", "Finca San Antonio", "COLOMBIA", 4.52191, -76.0774),
-        new("M318", "RED ASORUT", "Cacao", null, "COLOMBIA"),
-        new("M319", "RED ASORUT", "Cacao", "Finca San Antonio", "COLOMBIA", 4.52369, -76.07819),
-        new("M320", "RED ASORUT", "Cacao", null, "COLOMBIA"),
-        new("M321", "RED ASORUT", "Papaya", null, "COLOMBIA"),
-        new("M322", "RED ASORUT", "Papaya", "Finca La Floresta", "COLOMBIA", 4.47195, -76.08945),
-        new("M323", "RED ASORUT", "Papaya", null, "COLOMBIA"),
-        new("M336", "RED ASORUT", null, null, "COLOMBIA"),
-        // Ecuador
-        new("M333", "RED ECUADOR", "Cacao UTM", null, "ECUADOR"),
-        new("M334", "RED ECUADOR", "Cacao UTM", null, "ECUADOR"),
-        new("M335", "RED ECUADOR", "Cacao Productor", null, "ECUADOR"),
-        // Honduras
-        new("M324", "RED HONDURA", "Lima ácida Tahiti", null, "HONDURAS"),
-        new("M325", "RED HONDURA", "Lima ácida Tahiti", null, "HONDURAS"),
-        new("M326", "RED HONDURA", "Lima ácida Tahiti", null, "HONDURAS"),
-        new("M327", "RED HONDURA", "Papaya", null, "HONDURAS"),
-        new("M328", "RED HONDURA", "Papaya", null, "HONDURAS"),
-        new("M329", "RED HONDURA", "Papaya", null, "HONDURAS"),
-        new("M330", "RED HONDURA", "Cacao", null, "HONDURAS"),
-        new("M331", "RED HONDURA", "Cacao", null, "HONDURAS"),
-        new("M332", "RED HONDURA", "Cacao", null, "HONDURAS"),
-    ];
-
-    private static readonly Dictionary<string, PhysicalSensor> BySerial =
-        Sensors.ToDictionary(s => s.Serial, StringComparer.Ordinal);
-
     /// <summary>
     /// Separa un ID lógico M316-1 en (M316, 1). Sin sufijo → canal null.
     /// </summary>
@@ -125,30 +121,6 @@ public static partial class SensorCatalog
     /// <returns>Id lógico.</returns>
     public static string LogicalSensorId(string physicalSerial, int channel) =>
         $"{physicalSerial}-{channel}";
-
-    /// <summary>
-    /// Lista todos los sensores físicos.
-    /// </summary>
-    /// <returns>Copia de la lista.</returns>
-    public static IReadOnlyList<PhysicalSensor> ListSensors() => Sensors;
-
-    /// <summary>
-    /// Lista sensores con coordenadas.
-    /// </summary>
-    /// <returns>Sensores geolocalizados.</returns>
-    public static IReadOnlyList<PhysicalSensor> ListGeolocatedSensors() =>
-        Sensors.Where(s => s.Latitud is not null && s.Longitud is not null).ToList();
-
-    /// <summary>
-    /// Busca por serial físico o ID lógico.
-    /// </summary>
-    /// <param name="sensorId">M316 o M316-1.</param>
-    /// <returns>Sensor o null.</returns>
-    public static PhysicalSensor? GetSensor(string sensorId)
-    {
-        var (physical, _) = SplitLogicalId(sensorId);
-        return BySerial.TryGetValue(physical, out var sensor) ? sensor : null;
-    }
 
     /// <summary>
     /// Distancia en metros entre dos puntos WGS84 (Haversine).

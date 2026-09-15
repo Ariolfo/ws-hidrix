@@ -44,6 +44,15 @@ public class HidrtbSensor
     /// <summary>Fecha de actualización UTC.</summary>
     public DateTime SensFechaActualizacion { get; set; }
 
+    /// <summary>Capacidad de campo estimada (%).</summary>
+    public decimal? SensCcEstimado { get; set; }
+
+    /// <summary>Método usado para estimar CC (ej. SWDP-R).</summary>
+    public string? SensMetodoCc { get; set; }
+
+    /// <summary>Fecha UTC de la última estimación de CC.</summary>
+    public DateTime? SensFechaEstimacionCc { get; set; }
+
     /// <summary>Navegación a la red.</summary>
     public HidrtbRed? Red { get; set; }
 

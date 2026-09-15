@@ -32,6 +32,12 @@ public interface ISensorCatalogService
     /// <summary>Inactiva un sensor del catálogo (borrado lógico).</summary>
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 
+    /// <summary>Guarda CC estimada, método y fecha en HidrtbSensor.</summary>
+    Task<CatalogSensorDto> SaveEstimatedFieldCapacityAsync(
+        int id,
+        SaveEstimatedFieldCapacityRequest request,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Lista redes con país.</summary>
     Task<IReadOnlyList<NetworkDto>> ListNetworksAsync(CancellationToken cancellationToken = default);
 }

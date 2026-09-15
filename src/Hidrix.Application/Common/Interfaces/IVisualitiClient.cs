@@ -29,6 +29,38 @@ public class VisualitiReading
     public IReadOnlyList<int> Channels => Valores.Keys.OrderBy(k => k).ToList();
 }
 
+/// <summary>Sensores/canales actuales de una estación Visualiti (/sensor).</summary>
+public sealed class VisualitiStationSensors
+{
+    /// <summary>Canales lógicos deduplicados (1=Cont Vol1, 2=Cont Vol2, …).</summary>
+    public IReadOnlyList<int> Channels { get; init; } = [];
+}
+
+/// <summary>Estado de hardware de una estación (/hardware-status).</summary>
+public sealed class VisualitiHardwareStatus
+{
+    /// <summary>Id numérico de estación.</summary>
+    public int StationId { get; init; }
+
+    /// <summary>Nombre descriptivo en APPGRICULTOR.</summary>
+    public string? StationName { get; init; }
+
+    /// <summary>Latitud WGS84.</summary>
+    public double? Latitude { get; init; }
+
+    /// <summary>Longitud WGS84.</summary>
+    public double? Longitude { get; init; }
+
+    /// <summary>Estación online según recepción reciente de datos.</summary>
+    public bool? Online { get; init; }
+
+    /// <summary>Estado general de sensores (bueno, …).</summary>
+    public string? SensorState { get; init; }
+
+    /// <summary>Conectividad textual (online/offline).</summary>
+    public string? Connectivity { get; init; }
+}
+
 /// <summary>
 /// Cliente HTTP hacia la API Visualiti (appgricultor).
 /// </summary>
@@ -69,5 +101,19 @@ public interface IVisualitiClient
     Task<IReadOnlyList<VisualitiReading>> FetchMoistureReadingsForRangeAsync(
         string sensorSerial,
         string rangeKey,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Canales/sensores actualmente asociados a la estación (GET …/sensor).
+    /// </summary>
+    Task<VisualitiStationSensors?> GetStationSensorsAsync(
+        int stationId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Estado de hardware, coords y conectividad (GET …/hardware-status). Null si 404.
+    /// </summary>
+    Task<VisualitiHardwareStatus?> GetHardwareStatusAsync(
+        int stationId,
         CancellationToken cancellationToken = default);
 }

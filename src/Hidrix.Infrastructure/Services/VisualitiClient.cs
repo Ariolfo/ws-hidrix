@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -18,20 +19,21 @@ namespace Hidrix.Infrastructure.Services;
 /// </summary>
 public partial class VisualitiClient : IVisualitiClient
 {
-    private static readonly HashSet<int> VisualitiStationIds =
-    [
-        312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 336,
-        333, 334, 335,
-        324, 325, 326, 327, 328, 329, 330, 331, 332,
-    ];
-
     private static readonly TimeSpan LatestTtl = TimeSpan.FromSeconds(600);
     private static readonly TimeSpan HistoryTtl = TimeSpan.FromSeconds(300);
+    private static readonly TimeSpan StationMetaTtl = TimeSpan.FromSeconds(600);
+
+    private readonly ConcurrentDictionary<int, (VisualitiStationSensors Value, DateTimeOffset Expires)> _stationSensors =
+        new();
+
+    private readonly ConcurrentDictionary<int, (VisualitiHardwareStatus? Value, DateTimeOffset Expires)> _stationHardware =
+        new();
 
     private readonly HttpClient _http;
     private readonly VisualitiOptions _options;
     private readonly ILogger<VisualitiClient> _logger;
     private readonly IVisualitiMoistureCache _cache;
+    private readonly ISensorCatalogService _catalog;
 
     /// <summary>
     /// Inicializa el cliente Visualiti.
@@ -40,16 +42,19 @@ public partial class VisualitiClient : IVisualitiClient
     /// <param name="options">Opciones Visualiti.</param>
     /// <param name="logger">Logger.</param>
     /// <param name="cache">Caché singleton compartida.</param>
+    /// <param name="catalog">Catálogo de sensores (país → zona horaria).</param>
     public VisualitiClient(
         HttpClient http,
         IOptions<VisualitiOptions> options,
         ILogger<VisualitiClient> logger,
-        IVisualitiMoistureCache cache)
+        IVisualitiMoistureCache cache,
+        ISensorCatalogService catalog)
     {
         _http = http;
         _options = options.Value;
         _logger = logger;
         _cache = cache;
+        _catalog = catalog;
     }
 
     /// <inheritdoc />
@@ -108,10 +113,12 @@ public partial class VisualitiClient : IVisualitiClient
 
         try
         {
+            var timeZoneId = await ResolveTimeZoneForSerialAsync(sensorSerial, cancellationToken);
             return await FetchAndCacheRangeAsync(
                 physicalSerial,
                 sensorSerial,
                 normalized,
+                timeZoneId,
                 cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -125,6 +132,90 @@ public partial class VisualitiClient : IVisualitiClient
             _cache.SetHistory(physicalSerial, normalized, [], TimeSpan.FromSeconds(60));
             return [];
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<VisualitiStationSensors?> GetStationSensorsAsync(
+        int stationId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled)
+        {
+            return null;
+        }
+
+        if (_stationSensors.TryGetValue(stationId, out var cached) && cached.Expires > DateTimeOffset.UtcNow)
+        {
+            return cached.Value;
+        }
+
+        var token = await GetTokenAsync(cancellationToken);
+        if (string.IsNullOrEmpty(token))
+        {
+            return null;
+        }
+
+        var url = $"{_options.ApiUrl.TrimEnd('/')}/api/devices/4/{stationId}/sensor";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await _http.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Visualiti sensor list {Status} estación {Station}", response.StatusCode, stationId);
+            return null;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        var parsed = ParseStationSensors(doc.RootElement);
+        _stationSensors[stationId] = (parsed, DateTimeOffset.UtcNow.Add(StationMetaTtl));
+        return parsed;
+    }
+
+    /// <inheritdoc />
+    public async Task<VisualitiHardwareStatus?> GetHardwareStatusAsync(
+        int stationId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled)
+        {
+            return null;
+        }
+
+        if (_stationHardware.TryGetValue(stationId, out var cached) && cached.Expires > DateTimeOffset.UtcNow)
+        {
+            return cached.Value;
+        }
+
+        var token = await GetTokenAsync(cancellationToken);
+        if (string.IsNullOrEmpty(token))
+        {
+            return null;
+        }
+
+        var url = $"{_options.ApiUrl.TrimEnd('/')}/api/devices/4/{stationId}/hardware-status";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await _http.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _stationHardware[stationId] = (null, DateTimeOffset.UtcNow.Add(TimeSpan.FromSeconds(120)));
+            return null;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Visualiti hardware {Status} estación {Station}", response.StatusCode, stationId);
+            return null;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        var parsed = ParseHardwareStatus(doc.RootElement, stationId);
+        _stationHardware[stationId] = (parsed, DateTimeOffset.UtcNow.Add(StationMetaTtl));
+        return parsed;
     }
 
     /// <inheritdoc />
@@ -146,9 +237,11 @@ public partial class VisualitiClient : IVisualitiClient
             return [];
         }
 
+        var timeZoneId = await ResolveTimeZoneForSerialAsync(sensorSerial, cancellationToken);
+
         try
         {
-            var requested = await FetchRawAsync(stationNum.Value, since, cancellationToken);
+            var requested = await FetchRawAsync(stationNum.Value, since, timeZoneId, cancellationToken);
             if (requested.Count > 0)
             {
                 return requested;
@@ -170,7 +263,7 @@ public partial class VisualitiClient : IVisualitiClient
                 stationNum,
                 fallbackSince);
 
-            var expanded = await FetchRawAsync(stationNum.Value, fallbackSince, cancellationToken);
+            var expanded = await FetchRawAsync(stationNum.Value, fallbackSince, timeZoneId, cancellationToken);
             if (expanded.Count == 0)
             {
                 return [];
@@ -218,9 +311,10 @@ public partial class VisualitiClient : IVisualitiClient
         string physicalSerial,
         string sensorSerial,
         string rangeKey,
+        string timeZoneId,
         CancellationToken cancellationToken)
     {
-        var since = HistoryRangeHelper.ToSince(rangeKey);
+        var since = HistoryRangeHelper.ToSince(rangeKey, timeZoneId);
         var readings = await FetchMoistureReadingsAsync(sensorSerial, since, cancellationToken);
         _cache.SetHistory(physicalSerial, rangeKey, readings, HistoryTtl);
 
@@ -236,6 +330,7 @@ public partial class VisualitiClient : IVisualitiClient
     private async Task<List<VisualitiReading>> FetchRawAsync(
         int stationNum,
         DateTimeOffset since,
+        string timeZoneId,
         CancellationToken cancellationToken)
     {
         var token = await GetTokenAsync(cancellationToken);
@@ -260,13 +355,38 @@ public partial class VisualitiClient : IVisualitiClient
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        return ParsePayload(doc.RootElement, stationNum);
+        return ParsePayload(doc.RootElement, stationNum, timeZoneId);
+    }
+
+    private async Task<string> ResolveTimeZoneForSerialAsync(
+        string sensorSerial,
+        CancellationToken cancellationToken)
+    {
+        var (physical, _) = SensorCatalog.SplitLogicalId(sensorSerial);
+
+        // M### → tz por estación sin tocar DbContext (seguro en paralelo).
+        var station = ParseVisualitiStationId(physical);
+        if (station is int n)
+        {
+            return CountryTimeZoneResolver.ResolveForStation(n);
+        }
+
+        var sensor = await _catalog.GetSensorAsync(physical, cancellationToken);
+        if (sensor is not null)
+        {
+            return sensor.TimeZoneId;
+        }
+
+        return CountryTimeZoneResolver.DefaultTimeZoneId;
     }
 
     /// <summary>
     /// Interpreta el JSON Visualiti (<c>data</c> por timestamp o <c>detail: Not Data Found</c>).
     /// </summary>
-    public static List<VisualitiReading> ParsePayload(JsonElement root, int stationNum = 0)
+    public static List<VisualitiReading> ParsePayload(
+        JsonElement root,
+        int stationNum = 0,
+        string timeZoneId = CountryTimeZoneResolver.DefaultTimeZoneId)
     {
         if (root.TryGetProperty("detail", out var detailEl))
         {
@@ -311,7 +431,7 @@ public partial class VisualitiClient : IVisualitiClient
 
             result.Add(new VisualitiReading
             {
-                FechaHora = ParseReadingTimestamp(timestampRaw ?? period.Name),
+                FechaHora = ParseReadingTimestamp(timestampRaw ?? period.Name, timeZoneId),
                 Valores = channels,
             });
         }
@@ -391,7 +511,142 @@ public partial class VisualitiClient : IVisualitiClient
         }
 
         var id = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
-        return VisualitiStationIds.Contains(id) ? id : null;
+        return id > 0 ? id : null;
+    }
+
+    /// <summary>
+    /// Parsea GET …/sensor → canales lógicos deduplicados.
+    /// </summary>
+    public static VisualitiStationSensors ParseStationSensors(JsonElement root)
+    {
+        var channels = new SortedSet<int>();
+        if (root.ValueKind != JsonValueKind.Array)
+        {
+            return new VisualitiStationSensors();
+        }
+
+        foreach (var item in root.EnumerateArray())
+        {
+            var name = ExtractSensorName(item);
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            var match = ChannelNameRegex().Match(name);
+            if (match.Success)
+            {
+                channels.Add(int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture));
+            }
+        }
+
+        return new VisualitiStationSensors { Channels = channels.ToList() };
+    }
+
+    /// <summary>
+    /// Parsea GET …/hardware-status.
+    /// </summary>
+    public static VisualitiHardwareStatus? ParseHardwareStatus(JsonElement root, int stationId)
+    {
+        if (root.TryGetProperty("message", out _) && !root.TryGetProperty("coordenadas_estacion", out _))
+        {
+            return null;
+        }
+
+        double? lat = null;
+        double? lng = null;
+        if (root.TryGetProperty("coordenadas_estacion", out var coords))
+        {
+            lat = TryReadDouble(coords, "latitud");
+            lng = TryReadDouble(coords, "longitud");
+        }
+
+        bool? online = null;
+        string? connectivity = null;
+        if (root.TryGetProperty("conectividad_estacion", out var conn))
+        {
+            if (conn.TryGetProperty("online", out var onlineEl) &&
+                onlineEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                online = onlineEl.GetBoolean();
+            }
+
+            connectivity = conn.TryGetProperty("estado", out var est) ? est.GetString() : null;
+        }
+
+        string? sensorState = null;
+        if (root.TryGetProperty("estado_sensores", out var estado) &&
+            estado.TryGetProperty("estado", out var estadoEl))
+        {
+            sensorState = estadoEl.GetString();
+        }
+
+        string? stationName = null;
+        if (root.TryGetProperty("payload", out var payload) &&
+            payload.TryGetProperty("estacion", out var estacion) &&
+            estacion.TryGetProperty("nombre", out var nombre))
+        {
+            stationName = nombre.GetString();
+        }
+
+        return new VisualitiHardwareStatus
+        {
+            StationId = stationId,
+            StationName = stationName,
+            Latitude = lat,
+            Longitude = lng,
+            Online = online,
+            SensorState = sensorState,
+            Connectivity = connectivity,
+        };
+    }
+
+    private static string? ExtractSensorName(JsonElement item)
+    {
+        if (item.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var part in item.EnumerateArray())
+            {
+                if (part.ValueKind == JsonValueKind.String)
+                {
+                    return part.GetString()?.Trim();
+                }
+            }
+
+            return null;
+        }
+
+        if (item.ValueKind == JsonValueKind.Object)
+        {
+            if (item.TryGetProperty("sensor", out var sensorEl))
+            {
+                return sensorEl.GetString()?.Trim();
+            }
+
+            if (item.TryGetProperty("nombre", out var nameEl))
+            {
+                return nameEl.GetString()?.Trim();
+            }
+        }
+
+        return item.ValueKind == JsonValueKind.String ? item.GetString()?.Trim() : null;
+    }
+
+    private static double? TryReadDouble(JsonElement parent, string property)
+    {
+        if (!parent.TryGetProperty(property, out var el))
+        {
+            return null;
+        }
+
+        return el.ValueKind switch
+        {
+            JsonValueKind.Number => el.GetDouble(),
+            JsonValueKind.String => double.TryParse(el.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d)
+                ? d
+                : null,
+            _ => null,
+        };
     }
 
     /// <summary>
@@ -439,14 +694,18 @@ public partial class VisualitiClient : IVisualitiClient
     }
 
     /// <summary>
-    /// Parsea timestamps Visualiti con hora de 1 o 2 dígitos.
+    /// Parsea timestamps Visualiti (hora local del país) con hora de 1 o 2 dígitos.
     /// </summary>
-    public static DateTimeOffset ParseReadingTimestamp(string raw)
+    public static DateTimeOffset ParseReadingTimestamp(
+        string raw,
+        string timeZoneId = CountryTimeZoneResolver.DefaultTimeZoneId)
     {
         if (string.IsNullOrWhiteSpace(raw))
         {
             return DateTimeOffset.UtcNow;
         }
+
+        var tz = CountryTimeZoneResolver.GetTimeZone(timeZoneId);
 
         string[] formats =
         [
@@ -462,20 +721,22 @@ public partial class VisualitiClient : IVisualitiClient
                     raw,
                     fmt,
                     CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                    out var dt))
+                    DateTimeStyles.None,
+                    out var local))
             {
-                return new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc));
+                var offset = tz.GetUtcOffset(local);
+                return new DateTimeOffset(local, offset);
             }
         }
 
         if (DateTime.TryParse(
                 raw,
                 CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                DateTimeStyles.None,
                 out var loose))
         {
-            return new DateTimeOffset(DateTime.SpecifyKind(loose, DateTimeKind.Utc));
+            var offset = tz.GetUtcOffset(loose);
+            return new DateTimeOffset(loose, offset);
         }
 
         return DateTimeOffset.UtcNow;

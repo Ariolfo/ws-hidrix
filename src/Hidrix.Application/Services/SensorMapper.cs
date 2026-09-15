@@ -119,6 +119,7 @@ public static class SensorMapper
             AlertMessage = alert,
             Latitude = sensor.Latitud,
             Longitude = sensor.Longitud,
+            TimeZoneId = sensor.TimeZoneId,
         };
     }
 
@@ -128,14 +129,24 @@ public static class SensorMapper
     public static IReadOnlyList<SensorDto> ToLogicalSensorDtos(
         PhysicalSensor sensor,
         string stationId,
-        VisualitiReading? reading)
+        VisualitiReading? reading,
+        IReadOnlyList<int>? channels = null)
     {
-        var list = new List<SensorDto>(sensor.Canales);
-        for (var channel = 1; channel <= sensor.Canales; channel++)
+        var channelList = channels;
+        IEnumerable<int> sequence;
+        if (channelList is { Count: > 0 })
         {
-            list.Add(ToSensorDto(sensor, stationId, reading, channel));
+            sequence = channelList;
+        }
+        else if (sensor.Canales > 0)
+        {
+            sequence = Enumerable.Range(1, sensor.Canales);
+        }
+        else
+        {
+            sequence = Enumerable.Range(1, SensorCatalog.DefaultChannels);
         }
 
-        return list;
+        return sequence.Select(ch => ToSensorDto(sensor, stationId, reading, ch)).ToList();
     }
 }
