@@ -341,63 +341,49 @@ namespace Hidrix.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Hidrix.Domain.Entities.HidrtbSensor", b =>
+            modelBuilder.Entity("Hidrix.Domain.Entities.HidrtbSensorMeta", b =>
                 {
-                    b.Property<int>("SensId")
+                    b.Property<int>("MetaId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasColumnName("Sens_Id");
+                        .HasColumnName("Meta_Id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SensId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MetaId"));
 
                     b.Property<int?>("CultId")
                         .HasColumnType("int")
                         .HasColumnName("Cult_Id");
 
-                    b.Property<int>("RedId")
-                        .HasColumnType("int")
-                        .HasColumnName("Red_Id");
-
-                    b.Property<bool>("SensActivo")
+                    b.Property<bool>("MetaActivo")
                         .HasColumnType("bit")
-                        .HasColumnName("Sens_Activo");
+                        .HasColumnName("Meta_Activo");
 
-                    b.Property<int>("SensCanales")
-                        .HasColumnType("int")
-                        .HasColumnName("Sens_Canales");
-
-                    b.Property<string>("SensConectividad")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("Sens_Conectividad");
-
-                    b.Property<string>("SensEstado")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasColumnName("Sens_Estado");
-
-                    b.Property<DateTime>("SensFechaActualizacion")
+                    b.Property<DateTime>("MetaFechaActualizacion")
                         .HasColumnType("datetime2")
-                        .HasColumnName("Sens_FechaActualizacion");
+                        .HasColumnName("Meta_FechaActualizacion");
 
-                    b.Property<DateTime>("SensFechaCreacion")
+                    b.Property<DateTime>("MetaFechaCreacion")
                         .HasColumnType("datetime2")
-                        .HasColumnName("Sens_FechaCreacion");
+                        .HasColumnName("Meta_FechaCreacion");
+
+                    b.Property<decimal?>("SensCcEstimado")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)")
+                        .HasColumnName("Sens_CCEstimado");
+
+                    b.Property<DateTime?>("SensFechaEstimacionCc")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("Sens_FechaEstimacionCC");
 
                     b.Property<string>("SensFinca")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)")
                         .HasColumnName("Sens_Finca");
 
-                    b.Property<decimal?>("SensLatitud")
-                        .HasPrecision(10, 7)
-                        .HasColumnType("decimal(10,7)")
-                        .HasColumnName("Sens_Latitud");
-
-                    b.Property<decimal?>("SensLongitud")
-                        .HasPrecision(10, 7)
-                        .HasColumnType("decimal(10,7)")
-                        .HasColumnName("Sens_Longitud");
+                    b.Property<string>("SensMetodoCc")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("Sens_MetodoCC");
 
                     b.Property<string>("SensNombre")
                         .IsRequired()
@@ -405,16 +391,14 @@ namespace Hidrix.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("Sens_Nombre");
 
-                    b.HasKey("SensId");
+                    b.HasKey("MetaId");
 
                     b.HasIndex("CultId");
-
-                    b.HasIndex("RedId");
 
                     b.HasIndex("SensNombre")
                         .IsUnique();
 
-                    b.ToTable("HidrtbSensor", null, t =>
+                    b.ToTable("HidrtbSensorMeta", null, t =>
                         {
                             t.ExcludeFromMigrations();
                         });
@@ -598,21 +582,13 @@ namespace Hidrix.Infrastructure.Persistence.Migrations
                     b.Navigation("Pais");
                 });
 
-            modelBuilder.Entity("Hidrix.Domain.Entities.HidrtbSensor", b =>
+            modelBuilder.Entity("Hidrix.Domain.Entities.HidrtbSensorMeta", b =>
                 {
                     b.HasOne("Hidrix.Domain.Entities.HidrtbCultivo", "Cultivo")
-                        .WithMany("Sensores")
+                        .WithMany("SensorMetas")
                         .HasForeignKey("CultId");
 
-                    b.HasOne("Hidrix.Domain.Entities.HidrtbRed", "Red")
-                        .WithMany("Sensores")
-                        .HasForeignKey("RedId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Cultivo");
-
-                    b.Navigation("Red");
                 });
 
             modelBuilder.Entity("Hidrix.Infrastructure.Identity.ApplicationUser", b =>
@@ -626,7 +602,7 @@ namespace Hidrix.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Hidrix.Domain.Entities.HidrtbCultivo", b =>
                 {
-                    b.Navigation("Sensores");
+                    b.Navigation("SensorMetas");
                 });
 
             modelBuilder.Entity("Hidrix.Domain.Entities.HidrtbDepartamento", b =>
@@ -637,11 +613,6 @@ namespace Hidrix.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Hidrix.Domain.Entities.HidrtbPais", b =>
                 {
                     b.Navigation("Departamentos");
-                });
-
-            modelBuilder.Entity("Hidrix.Domain.Entities.HidrtbRed", b =>
-                {
-                    b.Navigation("Sensores");
                 });
 #pragma warning restore 612, 618
         }

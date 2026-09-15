@@ -1,14 +1,15 @@
 using System.Text.RegularExpressions;
+using Hidrix.Application.Common.Interfaces;
 
 namespace Hidrix.Application.Services;
 
 /// <summary>
-/// Sensor físico del catálogo estático (estación Visualiti M###).
+/// Sensor físico del inventario Visualiti (M###) con metadatos Hidrix opcionales.
 /// </summary>
 public sealed class PhysicalSensor
 {
     /// <summary>
-    /// Crea un sensor físico del catálogo.
+    /// Crea un sensor físico.
     /// </summary>
     public PhysicalSensor(
         string serial,
@@ -20,7 +21,12 @@ public sealed class PhysicalSensor
         double? longitud = null,
         int canales = SensorCatalog.DefaultChannels,
         int? countryId = null,
-        string? timeZoneId = null)
+        string? timeZoneId = null,
+        string? displayName = null,
+        bool? online = null,
+        string? connectivity = null,
+        string? hardwareStatus = null,
+        bool hasHardwareSnapshot = false)
     {
         Serial = serial;
         Red = red;
@@ -35,6 +41,11 @@ public sealed class PhysicalSensor
         Latitud = latitud;
         Longitud = longitud;
         Canales = canales;
+        DisplayName = displayName;
+        Online = online;
+        Connectivity = connectivity;
+        HardwareStatus = hardwareStatus;
+        HasHardwareSnapshot = hasHardwareSnapshot;
     }
 
     /// <summary>Serial Visualiti (M###).</summary>
@@ -58,22 +69,41 @@ public sealed class PhysicalSensor
     /// <summary>Zona horaria IANA del país de la red.</summary>
     public string TimeZoneId { get; }
 
-    /// <summary>Latitud WGS84.</summary>
+    /// <summary>Latitud WGS84 (Visualiti hardware-status).</summary>
     public double? Latitud { get; }
 
-    /// <summary>Longitud WGS84.</summary>
+    /// <summary>Longitud WGS84 (Visualiti hardware-status).</summary>
     public double? Longitud { get; }
 
     /// <summary>Canales lógicos expuestos.</summary>
     public int Canales { get; }
 
+    /// <summary>Nombre Visualiti del dispositivo (name_device).</summary>
+    public string? DisplayName { get; }
+
+    /// <summary>Estación online según Visualiti (null si desconocido).</summary>
+    public bool? Online { get; }
+
+    /// <summary>Conectividad textual (online/offline).</summary>
+    public string? Connectivity { get; }
+
+    /// <summary>Estado de hardware de sensores (bueno, aceptable, desconocido…).</summary>
+    public string? HardwareStatus { get; }
+
+    /// <summary>True si hubo snapshot Celery de hardware-status (false = 404 / sin datos).</summary>
+    public bool HasHardwareSnapshot { get; }
+
     /// <summary>
-    /// Copia con datos en vivo de Visualiti (canales, coordenadas).
+    /// Copia con datos en vivo de Visualiti (canales, coords, estado).
     /// </summary>
     public PhysicalSensor WithLiveData(
         int? canales = null,
         double? latitud = null,
-        double? longitud = null) =>
+        double? longitud = null,
+        bool? online = null,
+        string? connectivity = null,
+        string? hardwareStatus = null,
+        bool? hasHardwareSnapshot = null) =>
         new(
             Serial,
             Red,
@@ -84,7 +114,60 @@ public sealed class PhysicalSensor
             longitud ?? Longitud,
             canales ?? Canales,
             CountryId,
-            TimeZoneId);
+            TimeZoneId,
+            DisplayName,
+            online ?? Online,
+            connectivity ?? Connectivity,
+            hardwareStatus ?? HardwareStatus,
+            hasHardwareSnapshot ?? HasHardwareSnapshot);
+}
+
+/// <summary>
+/// Normaliza respuestas de GET …/hardware-status (incluye 404 sin snapshot).
+/// </summary>
+public static class VisualitiHardwareDefaults
+{
+    /// <summary>Conectividad cuando no hay snapshot Celery.</summary>
+    public const string Offline = "offline";
+
+    /// <summary>Estado de sensores cuando no hay snapshot.</summary>
+    public const string Unknown = "desconocido";
+
+    /// <summary>
+    /// Aplica valores por defecto si hardware es null (404 / sin snapshot).
+    /// </summary>
+    public static (
+        double? Latitude,
+        double? Longitude,
+        bool Online,
+        string Connectivity,
+        string HardwareStatus,
+        bool HasSnapshot) From(VisualitiHardwareStatus? hardware)
+    {
+        if (hardware is null)
+        {
+            return (null, null, false, Offline, Unknown, false);
+        }
+
+        var online = hardware.Online
+            ?? string.Equals(hardware.Connectivity, "online", StringComparison.OrdinalIgnoreCase);
+
+        var connectivity = !string.IsNullOrWhiteSpace(hardware.Connectivity)
+            ? hardware.Connectivity!.Trim().ToLowerInvariant()
+            : (online ? "online" : Offline);
+
+        var status = !string.IsNullOrWhiteSpace(hardware.SensorState)
+            ? hardware.SensorState!.Trim().ToLowerInvariant()
+            : Unknown;
+
+        return (
+            hardware.Latitude,
+            hardware.Longitude,
+            online,
+            connectivity,
+            status,
+            true);
+    }
 }
 
 /// <summary>
@@ -96,11 +179,10 @@ public static partial class SensorCatalog
     public const int DefaultChannels = 2;
 
     private static readonly Regex LogicalIdRegex = MyLogicalIdRegex();
+
     /// <summary>
     /// Separa un ID lógico M316-1 en (M316, 1). Sin sufijo → canal null.
     /// </summary>
-    /// <param name="sensorId">Id físico o lógico.</param>
-    /// <returns>Serial físico y canal opcional.</returns>
     public static (string Physical, int? Channel) SplitLogicalId(string sensorId)
     {
         var trimmed = sensorId.Trim();
@@ -116,20 +198,12 @@ public static partial class SensorCatalog
     /// <summary>
     /// Cont Vol{n} → sensor lógico M###-n (sensor_n).
     /// </summary>
-    /// <param name="physicalSerial">Serial físico.</param>
-    /// <param name="channel">Canal.</param>
-    /// <returns>Id lógico.</returns>
     public static string LogicalSensorId(string physicalSerial, int channel) =>
         $"{physicalSerial}-{channel}";
 
     /// <summary>
     /// Distancia en metros entre dos puntos WGS84 (Haversine).
     /// </summary>
-    /// <param name="lat1">Latitud origen.</param>
-    /// <param name="lng1">Longitud origen.</param>
-    /// <param name="lat2">Latitud destino.</param>
-    /// <param name="lng2">Longitud destino.</param>
-    /// <returns>Distancia en metros.</returns>
     public static double HaversineM(double lat1, double lng1, double lat2, double lng2)
     {
         const double radius = 6371000.0;

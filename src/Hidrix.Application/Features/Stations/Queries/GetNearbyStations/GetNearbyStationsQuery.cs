@@ -27,25 +27,22 @@ public class GetNearbyStationsQuery : IRequest<IReadOnlyList<StationDto>>
 }
 
 /// <summary>
-/// Handler de estaciones.
+/// Handler de estaciones (inventario Visualiti).
 /// </summary>
 public class GetNearbyStationsQueryHandler : IRequestHandler<GetNearbyStationsQuery, IReadOnlyList<StationDto>>
 {
     private readonly IVisualitiClient _visualiti;
-    private readonly ISensorCatalogService _catalog;
-    private readonly IVisualitiStationEnricher _enricher;
+    private readonly IVisualitiStationInventory _inventory;
 
     /// <summary>
     /// Inicializa el handler.
     /// </summary>
     public GetNearbyStationsQueryHandler(
         IVisualitiClient visualiti,
-        ISensorCatalogService catalog,
-        IVisualitiStationEnricher enricher)
+        IVisualitiStationInventory inventory)
     {
         _visualiti = visualiti;
-        _catalog = catalog;
-        _enricher = enricher;
+        _inventory = inventory;
     }
 
     /// <summary>
@@ -55,9 +52,8 @@ public class GetNearbyStationsQueryHandler : IRequestHandler<GetNearbyStationsQu
         GetNearbyStationsQuery request,
         CancellationToken cancellationToken)
     {
-        var allSensors = await _catalog.ListSensorsAsync(cancellationToken);
-        var enriched = await _enricher.EnrichManyAsync(allSensors, cancellationToken);
-        var geolocated = enriched
+        var allSensors = await _inventory.ListSensorsAsync(cancellationToken);
+        var geolocated = allSensors
             .Where(s => s.Latitud is not null && s.Longitud is not null)
             .ToList();
 
@@ -91,9 +87,11 @@ public class GetNearbyStationsQueryHandler : IRequestHandler<GetNearbyStationsQu
             var grupo = StationIds.GrupoFromSensor(sensor.Serial, sensor.Finca);
             if (!grouped.TryGetValue(grupo, out var entry))
             {
-                var nombre = string.IsNullOrWhiteSpace(sensor.Finca)
-                    ? $"Sensor {sensor.Serial}"
-                    : grupo;
+                var nombre = !string.IsNullOrWhiteSpace(sensor.Finca)
+                    ? grupo
+                    : (!string.IsNullOrWhiteSpace(sensor.DisplayName)
+                        ? sensor.DisplayName!
+                        : $"Sensor {sensor.Serial}");
                 grouped[grupo] = (nombre, [sensor], dist);
             }
             else
@@ -107,6 +105,7 @@ public class GetNearbyStationsQueryHandler : IRequestHandler<GetNearbyStationsQu
         foreach (var (grupo, entry) in grouped)
         {
             var sensors = entry.Sensors;
+            var (online, connectivity, hardwareStatus) = AggregateHardware(sensors);
             stations.Add(new StationDto
             {
                 Id = StationIds.EncodeStationId(grupo),
@@ -115,6 +114,9 @@ public class GetNearbyStationsQueryHandler : IRequestHandler<GetNearbyStationsQu
                 Longitude = Math.Round(sensors.Average(s => s.Longitud!.Value), 7),
                 SensorCount = sensors.Sum(s => s.Canales),
                 DistanceKm = Math.Round(entry.MinDist / 1000.0, 2),
+                Online = online,
+                Connectivity = connectivity,
+                HardwareStatus = hardwareStatus,
                 Sensors = [],
             });
         }
@@ -159,4 +161,40 @@ public class GetNearbyStationsQueryHandler : IRequestHandler<GetNearbyStationsQu
 
         return stations;
     }
+
+    private static (bool? Online, string Connectivity, string HardwareStatus) AggregateHardware(
+        IReadOnlyList<PhysicalSensor> sensors)
+    {
+        if (sensors.Count == 0)
+        {
+            return (false, VisualitiHardwareDefaults.Offline, VisualitiHardwareDefaults.Unknown);
+        }
+
+        var anyOnline = sensors.Any(s => s.Online == true);
+        var allOffline = sensors.All(s => s.Online == false);
+        bool? online = anyOnline ? true : (allOffline ? false : null);
+
+        var connectivity = anyOnline
+            ? "online"
+            : (sensors.Select(s => s.Connectivity).FirstOrDefault(c => !string.IsNullOrWhiteSpace(c))
+               ?? VisualitiHardwareDefaults.Offline);
+
+        var hardwareStatus = sensors
+            .Select(s => s.HardwareStatus)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .DefaultIfEmpty(VisualitiHardwareDefaults.Unknown)
+            .OrderByDescending(RankHardwareStatus)
+            .First()!;
+
+        return (online, connectivity, hardwareStatus);
+    }
+
+    private static int RankHardwareStatus(string? status) =>
+        (status ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "malo" or "critico" or "crítico" => 3,
+            "aceptable" or "regular" => 2,
+            "bueno" => 1,
+            _ => 0,
+        };
 }

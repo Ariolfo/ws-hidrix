@@ -31,8 +31,8 @@ public class HidrixDbContext : IdentityDbContext<ApplicationUser, IdentityRole, 
     /// <summary>Cultivos.</summary>
     public DbSet<HidrtbCultivo> Cultivos => Set<HidrtbCultivo>();
 
-    /// <summary>Sensores.</summary>
-    public DbSet<HidrtbSensor> Sensores => Set<HidrtbSensor>();
+    /// <summary>Metadatos de sensores Visualiti (cultivo / CC).</summary>
+    public DbSet<HidrtbSensorMeta> SensorMetas => Set<HidrtbSensorMeta>();
 
     /// <summary>Métodos para capacidad de campo.</summary>
     public DbSet<HidrtbMetodoCC> MetodosCC => Set<HidrtbMetodoCC>();

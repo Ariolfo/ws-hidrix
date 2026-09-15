@@ -119,7 +119,7 @@ public class CropsController : ControllerBase
 }
 
 /// <summary>
-/// Catálogo de sensores por país/red (CRUD ligero, solo Admin).
+/// Catálogo de sensores por país (relación cultivo / CC; inventario en Visualiti).
 /// </summary>
 [ApiController]
 [Route("api/v1/catalog/sensors")]
@@ -171,17 +171,19 @@ public class CatalogSensorsController : ControllerBase
         return Ok(ApiResponse<CatalogSensorDto>.Ok(data));
     }
 
-    /// <summary>Crea un sensor manualmente.</summary>
+    /// <summary>Asigna cultivo/finca a un sensor Visualiti.</summary>
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<CatalogSensorDto>), StatusCodes.Status201Created)]
-    public async Task<ActionResult<ApiResponse<CatalogSensorDto>>> Create(
-        [FromBody] CreateCatalogSensorRequest request,
+    public async Task<ActionResult<ApiResponse<CatalogSensorDto>>> AssignCrop(
+        [FromBody] AssignSensorCropRequest request,
         CancellationToken cancellationToken)
     {
         try
         {
-            var data = await _sensors.CreateAsync(request, cancellationToken);
-            return StatusCode(StatusCodes.Status201Created, ApiResponse<CatalogSensorDto>.Ok(data, "Sensor creado"));
+            var data = await _sensors.AssignCropAsync(request, cancellationToken);
+            return StatusCode(
+                StatusCodes.Status201Created,
+                ApiResponse<CatalogSensorDto>.Ok(data, "Relación sensor–cultivo guardada"));
         }
         catch (ArgumentException ex)
         {
@@ -193,19 +195,19 @@ public class CatalogSensorsController : ControllerBase
         }
     }
 
-    /// <summary>Actualiza un sensor del catálogo.</summary>
+    /// <summary>Actualiza cultivo/finca de un sensor.</summary>
     [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse<CatalogSensorDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ApiResponse<CatalogSensorDto>>> Update(
+    public async Task<ActionResult<ApiResponse<CatalogSensorDto>>> UpdateCrop(
         int id,
-        [FromBody] CreateCatalogSensorRequest request,
+        [FromBody] AssignSensorCropRequest request,
         CancellationToken cancellationToken)
     {
         try
         {
-            var data = await _sensors.UpdateAsync(id, request, cancellationToken);
-            return Ok(ApiResponse<CatalogSensorDto>.Ok(data, "Sensor actualizado"));
+            var data = await _sensors.UpdateCropAsync(id, request, cancellationToken);
+            return Ok(ApiResponse<CatalogSensorDto>.Ok(data, "Relación sensor–cultivo actualizada"));
         }
         catch (KeyNotFoundException ex)
         {
@@ -221,7 +223,7 @@ public class CatalogSensorsController : ControllerBase
         }
     }
 
-    /// <summary>Inactiva un sensor del catálogo.</summary>
+    /// <summary>Quita cultivo/finca del sensor (conserva CC).</summary>
     [HttpDelete("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -230,7 +232,7 @@ public class CatalogSensorsController : ControllerBase
         try
         {
             await _sensors.DeleteAsync(id, cancellationToken);
-            return Ok(ApiResponse<object>.Ok(new { ok = true }, "Sensor eliminado"));
+            return Ok(ApiResponse<object>.Ok(new { ok = true }, "Cultivo desasignado"));
         }
         catch (KeyNotFoundException ex)
         {
@@ -238,7 +240,7 @@ public class CatalogSensorsController : ControllerBase
         }
     }
 
-    /// <summary>Guarda CC estimada, método y fecha en HidrtbSensor.</summary>
+    /// <summary>Guarda CC estimada, método y fecha en HidrtbSensorMeta.</summary>
     [HttpPatch("{id:int}/estimated-field-capacity")]
     [ProducesResponseType(typeof(ApiResponse<CatalogSensorDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

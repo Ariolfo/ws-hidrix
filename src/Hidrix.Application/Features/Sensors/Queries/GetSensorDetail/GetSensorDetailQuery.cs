@@ -21,20 +21,17 @@ public class GetSensorDetailQuery : IRequest<SensorDto>
 public class GetSensorDetailQueryHandler : IRequestHandler<GetSensorDetailQuery, SensorDto>
 {
     private readonly IVisualitiClient _visualiti;
-    private readonly ISensorCatalogService _catalog;
-    private readonly IVisualitiStationEnricher _enricher;
+    private readonly IVisualitiStationInventory _inventory;
 
     /// <summary>
     /// Inicializa el handler.
     /// </summary>
     public GetSensorDetailQueryHandler(
         IVisualitiClient visualiti,
-        ISensorCatalogService catalog,
-        IVisualitiStationEnricher enricher)
+        IVisualitiStationInventory inventory)
     {
         _visualiti = visualiti;
-        _catalog = catalog;
-        _enricher = enricher;
+        _inventory = inventory;
     }
 
     /// <summary>
@@ -42,10 +39,8 @@ public class GetSensorDetailQueryHandler : IRequestHandler<GetSensorDetailQuery,
     /// </summary>
     public async ValueTask<SensorDto> Handle(GetSensorDetailQuery request, CancellationToken cancellationToken)
     {
-        var sensor = await _catalog.GetSensorAsync(request.SensorId, cancellationToken)
+        var sensor = await _inventory.GetSensorAsync(request.SensorId, cancellationToken)
                      ?? throw new NotFoundException($"Sensor no encontrado: {request.SensorId}");
-
-        sensor = await _enricher.EnrichAsync(sensor, cancellationToken);
 
         var (_, channel) = SensorCatalog.SplitLogicalId(request.SensorId);
         var reading = await _visualiti.GetLatestReadingCachedAsync(sensor.Serial, cancellationToken);

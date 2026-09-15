@@ -29,6 +29,6 @@ public class HidrtbCultivo
     /// <summary>Fecha de actualización UTC.</summary>
     public DateTime CultFechaActualizacion { get; set; }
 
-    /// <summary>Sensores asociados.</summary>
-    public ICollection<HidrtbSensor> Sensores { get; set; } = new List<HidrtbSensor>();
+    /// <summary>Metadatos de sensores asociados.</summary>
+    public ICollection<HidrtbSensorMeta> SensorMetas { get; set; } = new List<HidrtbSensorMeta>();
 }

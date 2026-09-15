@@ -74,22 +74,25 @@ public sealed class NetworkDto
     public string CountryName { get; set; } = string.Empty;
 }
 
-/// <summary>DTO de sensor de catálogo.</summary>
+/// <summary>DTO de relación sensor Visualiti ↔ cultivo / CC Hidrix.</summary>
 public sealed class CatalogSensorDto
 {
-    /// <summary>Id interno.</summary>
+    /// <summary>Id interno de metadatos.</summary>
     public int Id { get; set; }
 
-    /// <summary>Nombre / serial.</summary>
+    /// <summary>Nombre / serial Visualiti (M###).</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Id de red.</summary>
+    /// <summary>Nombre del dispositivo en Visualiti.</summary>
+    public string? DeviceName { get; set; }
+
+    /// <summary>Id de red (legado; 0 si no aplica).</summary>
     public int NetworkId { get; set; }
 
-    /// <summary>Nombre de red.</summary>
+    /// <summary>Nombre de red / origen Visualiti.</summary>
     public string NetworkName { get; set; } = string.Empty;
 
-    /// <summary>Id de país.</summary>
+    /// <summary>Id de país (catálogo geo; 0 si desconocido).</summary>
     public int CountryId { get; set; }
 
     /// <summary>Nombre de país.</summary>
@@ -101,16 +104,16 @@ public sealed class CatalogSensorDto
     /// <summary>Nombre de cultivo.</summary>
     public string? CropName { get; set; }
 
-    /// <summary>Latitud.</summary>
+    /// <summary>Latitud (Visualiti hardware-status).</summary>
     public double? Latitude { get; set; }
 
-    /// <summary>Longitud.</summary>
+    /// <summary>Longitud (Visualiti hardware-status).</summary>
     public double? Longitude { get; set; }
 
-    /// <summary>Estado del sensor.</summary>
+    /// <summary>Estado del sensor (Visualiti).</summary>
     public string? SensorStatus { get; set; }
 
-    /// <summary>Conectividad (online/offline).</summary>
+    /// <summary>Conectividad (Visualiti).</summary>
     public string? Connectivity { get; set; }
 
     /// <summary>Finca.</summary>
@@ -126,7 +129,7 @@ public sealed class CatalogSensorDto
     public DateTime? EstimationDate { get; set; }
 }
 
-/// <summary>Guarda CC estimada en el sensor.</summary>
+/// <summary>Guarda CC estimada en metadatos del sensor.</summary>
 public sealed class SaveEstimatedFieldCapacityRequest
 {
     /// <summary>Capacidad de campo estimada (%).</summary>
@@ -139,30 +142,15 @@ public sealed class SaveEstimatedFieldCapacityRequest
     public DateTime? EstimatedAt { get; set; }
 }
 
-/// <summary>Request para crear/actualizar sensor manualmente.</summary>
-public sealed class CreateCatalogSensorRequest
+/// <summary>Asigna o actualiza cultivo/finca de un sensor Visualiti.</summary>
+public sealed class AssignSensorCropRequest
 {
-    /// <summary>Nombre del sensor (ej. M333-1).</summary>
+    /// <summary>Serial Visualiti (ej. M333). Obligatorio al crear la relación.</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Id de red.</summary>
-    public int NetworkId { get; set; }
-
-    /// <summary>Id de cultivo (opcional).</summary>
+    /// <summary>Id de cultivo (null = quitar cultivo).</summary>
     public int? CropId { get; set; }
 
-    /// <summary>Latitud.</summary>
-    public double? Latitude { get; set; }
-
-    /// <summary>Longitud.</summary>
-    public double? Longitude { get; set; }
-
-    /// <summary>Estado del sensor.</summary>
-    public string? SensorStatus { get; set; }
-
-    /// <summary>Conectividad.</summary>
-    public string? Connectivity { get; set; }
-
-    /// <summary>Finca.</summary>
+    /// <summary>Finca / parcela (opcional).</summary>
     public string? Farm { get; set; }
 }

@@ -16,25 +16,22 @@ public class GetStationSensorsQuery : IRequest<IReadOnlyList<SensorDto>>
 }
 
 /// <summary>
-/// Handler de sensores por estación.
+/// Handler de sensores por estación (inventario Visualiti).
 /// </summary>
 public class GetStationSensorsQueryHandler : IRequestHandler<GetStationSensorsQuery, IReadOnlyList<SensorDto>>
 {
     private readonly IVisualitiClient _visualiti;
-    private readonly ISensorCatalogService _catalog;
-    private readonly IVisualitiStationEnricher _enricher;
+    private readonly IVisualitiStationInventory _inventory;
 
     /// <summary>
     /// Inicializa el handler.
     /// </summary>
     public GetStationSensorsQueryHandler(
         IVisualitiClient visualiti,
-        ISensorCatalogService catalog,
-        IVisualitiStationEnricher enricher)
+        IVisualitiStationInventory inventory)
     {
         _visualiti = visualiti;
-        _catalog = catalog;
-        _enricher = enricher;
+        _inventory = inventory;
     }
 
     /// <summary>
@@ -57,13 +54,13 @@ public class GetStationSensorsQueryHandler : IRequestHandler<GetStationSensorsQu
 
         List<PhysicalSensor> sensors;
         string responseStationId;
-        var all = await _catalog.ListSensorsAsync(cancellationToken);
+        var all = await _inventory.ListSensorsAsync(cancellationToken);
 
         if (kind == "serial")
         {
             var sensor = all.FirstOrDefault(s =>
                              string.Equals(s.Serial, key, StringComparison.OrdinalIgnoreCase))
-                         ?? await _catalog.GetSensorAsync(key, cancellationToken)
+                         ?? await _inventory.GetSensorAsync(key, cancellationToken)
                          ?? throw new NotFoundException($"Estación no encontrada: {request.StationId}");
             sensors = [sensor];
             responseStationId = StationIds.EncodeStationId(key);
@@ -80,8 +77,6 @@ public class GetStationSensorsQueryHandler : IRequestHandler<GetStationSensorsQu
 
             responseStationId = request.StationId;
         }
-
-        sensors = (await _enricher.EnrichManyAsync(sensors, cancellationToken)).ToList();
 
         var latest = new Dictionary<string, VisualitiReading?>(StringComparer.Ordinal);
         await Parallel.ForEachAsync(

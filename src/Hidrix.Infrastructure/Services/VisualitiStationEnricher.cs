@@ -1,6 +1,5 @@
 using Hidrix.Application.Common.Interfaces;
 using Hidrix.Application.Services;
-using Hidrix.Infrastructure.Services;
 
 namespace Hidrix.Infrastructure.Services;
 
@@ -58,7 +57,8 @@ public sealed class VisualitiStationEnricher : IVisualitiStationEnricher
         return results;
     }
 
-    private static PhysicalSensor ApplyVisualiti(
+    /// <summary>Aplica canales y hardware-status (404 → offline/desconocido).</summary>
+    public static PhysicalSensor ApplyVisualiti(
         PhysicalSensor sensor,
         VisualitiStationSensors? liveSensors,
         VisualitiHardwareStatus? hardware)
@@ -67,9 +67,17 @@ public sealed class VisualitiStationEnricher : IVisualitiStationEnricher
             ? liveSensors.Channels.Count
             : (int?)null;
 
-        var lat = hardware?.Latitude ?? sensor.Latitud;
-        var lng = hardware?.Longitude ?? sensor.Longitud;
+        var snapshot = VisualitiHardwareDefaults.From(hardware);
+        var lat = snapshot.Latitude ?? sensor.Latitud;
+        var lng = snapshot.Longitude ?? sensor.Longitud;
 
-        return sensor.WithLiveData(channelCount, lat, lng);
+        return sensor.WithLiveData(
+            channelCount,
+            lat,
+            lng,
+            snapshot.Online,
+            snapshot.Connectivity,
+            snapshot.HardwareStatus,
+            snapshot.HasSnapshot);
     }
 }

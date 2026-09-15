@@ -1,6 +1,8 @@
 using System.Text.Json;
 using FluentAssertions;
+using Hidrix.Application.Common.Interfaces;
 using Hidrix.Application.Services;
+using Hidrix.Infrastructure.Options;
 using Hidrix.Infrastructure.Services;
 
 namespace Hidrix.Application.Tests;
@@ -82,6 +84,121 @@ public class VisualitiParseTests
         using var doc = JsonDocument.Parse(json);
         var parsed = VisualitiClient.ParseStationSensors(doc.RootElement);
         parsed.Channels.Should().Equal(1, 2);
+    }
+
+    [Fact]
+    public void VisualitiHardwareDefaults_NullSnapshot_IsOfflineUnknown()
+    {
+        var snapshot = VisualitiHardwareDefaults.From(null);
+        snapshot.HasSnapshot.Should().BeFalse();
+        snapshot.Online.Should().BeFalse();
+        snapshot.Connectivity.Should().Be("offline");
+        snapshot.HardwareStatus.Should().Be("desconocido");
+        snapshot.Latitude.Should().BeNull();
+        snapshot.Longitude.Should().BeNull();
+    }
+
+    [Fact]
+    public void VisualitiHardwareDefaults_OnlineSnapshot_PreservesCoords()
+    {
+        var hw = new VisualitiHardwareStatus
+        {
+            StationId = 316,
+            Latitude = 4.52,
+            Longitude = -76.07,
+            Online = true,
+            Connectivity = "online",
+            SensorState = "bueno",
+        };
+        var snapshot = VisualitiHardwareDefaults.From(hw);
+        snapshot.HasSnapshot.Should().BeTrue();
+        snapshot.Online.Should().BeTrue();
+        snapshot.Connectivity.Should().Be("online");
+        snapshot.HardwareStatus.Should().Be("bueno");
+        snapshot.Latitude.Should().BeApproximately(4.52, 0.001);
+    }
+
+    [Fact]
+    public void Enricher_ApplyVisualiti_UsesHardwareDefaultsOn404()
+    {
+        var baseSensor = new PhysicalSensor("M316", "Visualiti", cultivo: "Aguacate");
+        var enriched = VisualitiStationEnricher.ApplyVisualiti(
+            baseSensor,
+            new VisualitiStationSensors { Channels = [1, 2] },
+            hardware: null);
+
+        enriched.Canales.Should().Be(2);
+        enriched.Online.Should().BeFalse();
+        enriched.Connectivity.Should().Be("offline");
+        enriched.HardwareStatus.Should().Be("desconocido");
+        enriched.HasHardwareSnapshot.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("", "", "https://api.appgricultor.com", "https://api.appgricultor.com/api/login")]
+    [InlineData("https://api.appgricultor.com", "", "https://api.appgricultor.com", "https://api.appgricultor.com/api/login")]
+    [InlineData("", "http://appgricultor.com/api/login", "https://api.appgricultor.com", "http://appgricultor.com/api/login")]
+    public void VisualitiOptions_ResolvesUnifiedUrls(
+        string apiUrl,
+        string loginUrl,
+        string expectedApi,
+        string expectedLogin)
+    {
+        var opts = new VisualitiOptions
+        {
+            BaseUrl = "https://api.appgricultor.com",
+            ApiUrl = apiUrl,
+            LoginUrl = loginUrl,
+        };
+        opts.ResolveApiUrl().Should().Be(expectedApi);
+        opts.ResolveLoginUrl().Should().Be(expectedLogin);
+    }
+
+    [Fact]
+    public void ParseDevices_ReadsStationInventory()
+    {
+        const string json = """
+        [
+          {
+            "origen_id": "4",
+            "origen": "Red Inalámbrica de Sensores Visualiti",
+            "estacion": "312",
+            "name_device": "LIMA1 SUELO M312"
+          },
+          {
+            "origen_id": "4",
+            "origen": "Red Inalámbrica de Sensores Visualiti",
+            "estacion": "333",
+            "name_device": "SUELO M333"
+          },
+          {
+            "origen_id": "4",
+            "origen": "Red Inalámbrica de Sensores Visualiti",
+            "estacion": "312",
+            "name_device": "LIMA1 SUELO M312 DUP"
+          }
+        ]
+        """;
+        using var doc = JsonDocument.Parse(json);
+        var devices = VisualitiClient.ParseDevices(doc.RootElement);
+        devices.Should().HaveCount(2);
+        devices[0].StationId.Should().Be(312);
+        devices[0].Serial.Should().Be("M312");
+        devices[0].DeviceName.Should().Be("LIMA1 SUELO M312");
+        devices[0].OrigenId.Should().Be(4);
+        devices[1].StationId.Should().Be(333);
+        devices[1].Serial.Should().Be("M333");
+    }
+
+    [Theory]
+    [InlineData("LIMA1 SUELO M312", "Lima")]
+    [InlineData("AGUACATE2 SUELO M316", "Aguacate")]
+    [InlineData("CACAO3 SUELO M320", "Cacao")]
+    [InlineData("PAPAYA1 SUELO M321", "Papaya")]
+    [InlineData("CHONTADURO CLIMA SUELO M240", null)]
+    public void InferCrop_FromDeviceName(string name, string? expected)
+    {
+        VisualitiStationInventory.InferCrop(name).Should().Be(expected);
     }
 
     [Fact]

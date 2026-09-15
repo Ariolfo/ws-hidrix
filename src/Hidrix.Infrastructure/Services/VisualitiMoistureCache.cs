@@ -1,10 +1,11 @@
 using System.Collections.Concurrent;
 using Hidrix.Application.Common.Interfaces;
+using Hidrix.Application.Services;
 
 namespace Hidrix.Infrastructure.Services;
 
 /// <summary>
-/// Caché en memoria thread-safe de token, latest e histórico Visualiti (singleton DI).
+/// Caché en memoria thread-safe de sesión Visualiti (singleton DI).
 /// </summary>
 public sealed class VisualitiMoistureCache : IVisualitiMoistureCache
 {
@@ -18,6 +19,20 @@ public sealed class VisualitiMoistureCache : IVisualitiMoistureCache
 
     private readonly ConcurrentDictionary<string, CacheEntry<IReadOnlyList<VisualitiReading>>> _history = new(
         StringComparer.OrdinalIgnoreCase);
+
+    private readonly ConcurrentDictionary<int, CacheEntry<VisualitiStationSensors>> _stationSensors = new();
+    private readonly ConcurrentDictionary<int, CacheEntry<VisualitiHardwareStatus?>> _stationHardware = new();
+
+    private readonly object _devicesLock = new();
+    private CacheEntry<IReadOnlyList<VisualitiDevice>>? _devices;
+
+    private readonly object _inventoryLock = new();
+    private InventoryEntry? _inventory;
+
+    private sealed record InventoryEntry(
+        IReadOnlyList<PhysicalSensor> Value,
+        DateTimeOffset SoftExpiresAt,
+        DateTimeOffset HardExpiresAt);
 
     /// <inheritdoc />
     public bool TryGetToken(out string token)
@@ -136,6 +151,126 @@ public sealed class VisualitiMoistureCache : IVisualitiMoistureCache
         }
 
         return best;
+    }
+
+    /// <inheritdoc />
+    public bool TryGetDevices(out IReadOnlyList<VisualitiDevice> devices)
+    {
+        lock (_devicesLock)
+        {
+            if (_devices is { } entry && entry.ExpiresAt > DateTimeOffset.UtcNow)
+            {
+                devices = entry.Value;
+                return true;
+            }
+        }
+
+        devices = [];
+        return false;
+    }
+
+    /// <inheritdoc />
+    public void SetDevices(IReadOnlyList<VisualitiDevice> devices, TimeSpan ttl)
+    {
+        lock (_devicesLock)
+        {
+            _devices = new CacheEntry<IReadOnlyList<VisualitiDevice>>(
+                devices,
+                DateTimeOffset.UtcNow.Add(ttl));
+        }
+    }
+
+    /// <inheritdoc />
+    public bool TryGetStationSensors(int stationId, out VisualitiStationSensors sensors)
+    {
+        if (_stationSensors.TryGetValue(stationId, out var entry) && entry.ExpiresAt > DateTimeOffset.UtcNow)
+        {
+            sensors = entry.Value;
+            return true;
+        }
+
+        sensors = new VisualitiStationSensors();
+        return false;
+    }
+
+    /// <inheritdoc />
+    public void SetStationSensors(int stationId, VisualitiStationSensors sensors, TimeSpan ttl)
+    {
+        _stationSensors[stationId] = new CacheEntry<VisualitiStationSensors>(
+            sensors,
+            DateTimeOffset.UtcNow.Add(ttl));
+    }
+
+    /// <inheritdoc />
+    public bool TryGetHardware(int stationId, out VisualitiHardwareStatus? hardware, out bool found)
+    {
+        if (_stationHardware.TryGetValue(stationId, out var entry) && entry.ExpiresAt > DateTimeOffset.UtcNow)
+        {
+            hardware = entry.Value;
+            found = true;
+            return true;
+        }
+
+        hardware = null;
+        found = false;
+        return false;
+    }
+
+    /// <inheritdoc />
+    public void SetHardware(int stationId, VisualitiHardwareStatus? hardware, TimeSpan ttl)
+    {
+        _stationHardware[stationId] = new CacheEntry<VisualitiHardwareStatus?>(
+            hardware,
+            DateTimeOffset.UtcNow.Add(ttl));
+    }
+
+    /// <inheritdoc />
+    public bool TryGetInventory(
+        out IReadOnlyList<PhysicalSensor> inventory,
+        out bool isStale,
+        bool allowStale = false)
+    {
+        lock (_inventoryLock)
+        {
+            if (_inventory is { } entry)
+            {
+                var now = DateTimeOffset.UtcNow;
+                if (now < entry.SoftExpiresAt)
+                {
+                    inventory = entry.Value;
+                    isStale = false;
+                    return true;
+                }
+
+                if (allowStale && now < entry.HardExpiresAt)
+                {
+                    inventory = entry.Value;
+                    isStale = true;
+                    return true;
+                }
+            }
+        }
+
+        inventory = [];
+        isStale = false;
+        return false;
+    }
+
+    /// <inheritdoc />
+    public void SetInventory(
+        IReadOnlyList<PhysicalSensor> inventory,
+        TimeSpan ttl,
+        TimeSpan staleWindow)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var hard = ttl > staleWindow ? ttl : staleWindow;
+        lock (_inventoryLock)
+        {
+            _inventory = new InventoryEntry(
+                inventory,
+                now.Add(ttl),
+                now.Add(hard));
+        }
     }
 
     private static string HistoryKey(string physicalSerial, string rangeKey) =>

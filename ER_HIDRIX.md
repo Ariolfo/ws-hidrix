@@ -11,8 +11,7 @@ erDiagram
     HidrtbDepartamento ||--o{ HidrtbCiudad : "tiene"
     HidrtbCiudad ||--o{ HidrtbUsuario : "reside_en"
     HidrtbPais ||--o{ HidrtbRed : "opera_en"
-    HidrtbRed ||--o{ HidrtbSensor : "agrupa"
-    HidrtbCultivo ||--o{ HidrtbSensor : "asocia"
+    HidrtbCultivo ||--o{ HidrtbSensorMeta : "asocia"
     HidrtbUsuario ||--o{ HidrtbUsuarioRol : "tiene"
     HidrtbRol ||--o{ HidrtbUsuarioRol : "agrupa"
 
@@ -104,18 +103,15 @@ erDiagram
         bit Cult_Activo
     }
 
-    HidrtbSensor {
-        int Sens_Id PK
-        nvarchar Sens_Nombre
-        int Red_Id FK
+    HidrtbSensorMeta {
+        int Meta_Id PK
+        nvarchar Sens_Nombre UK "serial Visualiti M###"
         int Cult_Id FK
-        decimal Sens_Latitud
-        decimal Sens_Longitud
-        nvarchar Sens_Estado
-        nvarchar Sens_Conectividad
         nvarchar Sens_Finca
-        int Sens_Canales
-        bit Sens_Activo
+        decimal Sens_CCEstimado
+        nvarchar Sens_MetodoCC
+        datetime2 Sens_FechaEstimacionCC
+        bit Meta_Activo
     }
 
     HidrtbLog {
@@ -139,9 +135,9 @@ erDiagram
 - **HidrtbUsuarioClaim / HidrtbUsuarioLogin / HidrtbUsuarioToken / HidrtbRolClaim**: tablas auxiliares de Identity.
 
 ### Sensores y riego
-- **HidrtbRed**: red de sensores ligada a un país (p. ej. RED ASORUT, RED ECUADOR, RED HONDURA).
+- **HidrtbRed**: red de referencia ligada a un país (p. ej. RED ASORUT, RED ECUADOR, RED HONDURA). El inventario vivo de estaciones está en Visualiti.
 - **HidrtbCultivo**: parámetros de riego (capacidad de campo, % máximo, % decisión).
-- **HidrtbSensor**: nodo/sensor; pertenece a una red y opcionalmente a un cultivo; guarda coordenadas, estado y conectividad.
+- **HidrtbSensorMeta**: metadatos Hidrix por serial Visualiti (cultivo, finca, CC estimada). Coordenadas, canales y estado operativo vienen de la API Visualiti.
 
 ### Soporte
 - **HidrtbLog**: logs de aplicación (Serilog).
@@ -155,5 +151,4 @@ erDiagram
 | UsuarioRol | Usuario | `UserId` |
 | UsuarioRol | Rol | `RoleId` |
 | Red | País | `Pais_Id` |
-| Sensor | Red | `Red_Id` |
-| Sensor | Cultivo | `Cult_Id` (nullable) |
+| SensorMeta | Cultivo | `Cult_Id` (nullable) |

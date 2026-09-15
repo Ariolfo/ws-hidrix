@@ -29,6 +29,25 @@ public class VisualitiReading
     public IReadOnlyList<int> Channels => Valores.Keys.OrderBy(k => k).ToList();
 }
 
+/// <summary>Estación/dispositivo del inventario dinámico (GET /api/devices).</summary>
+public sealed class VisualitiDevice
+{
+    /// <summary>Id de plataforma Visualiti (normalmente 4).</summary>
+    public int OrigenId { get; init; }
+
+    /// <summary>Nombre de la red/origen.</summary>
+    public string Origen { get; init; } = string.Empty;
+
+    /// <summary>Id numérico de estación Visualiti.</summary>
+    public int StationId { get; init; }
+
+    /// <summary>Nombre del dispositivo (ej. LIMA1 SUELO M312).</summary>
+    public string DeviceName { get; init; } = string.Empty;
+
+    /// <summary>Serial Hidrix (M###).</summary>
+    public string Serial => $"M{StationId}";
+}
+
 /// <summary>Sensores/canales actuales de una estación Visualiti (/sensor).</summary>
 public sealed class VisualitiStationSensors
 {
@@ -101,6 +120,12 @@ public interface IVisualitiClient
     Task<IReadOnlyList<VisualitiReading>> FetchMoistureReadingsForRangeAsync(
         string sensorSerial,
         string rangeKey,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inventario dinámico de estaciones del cliente (GET /api/devices).
+    /// </summary>
+    Task<IReadOnlyList<VisualitiDevice>> GetDevicesAsync(
         CancellationToken cancellationToken = default);
 
     /// <summary>

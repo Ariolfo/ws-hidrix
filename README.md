@@ -131,7 +131,8 @@ dotnet test
 
 ## Notas
 
-- Sensores: catálogo estático; lecturas en vivo vía Visualiti.
+- Inventario de estaciones/sensores: API Visualiti (`/api/devices`, `/sensor`, `/hardware-status`).
+- Metadatos Hidrix: `HidrtbSensorMeta` (cultivo, finca, CC estimada).
 - Estaciones: `fin-{slug}` (finca) o `sn-M###` (sensor sin finca).
 - Humedad: `Cont Vol1` → sensor_1, `Cont Vol2` → sensor_2; valor ≤ 1.5 → ×100.
 - Irrigation **no** forma parte de este backend (lógica en la app).

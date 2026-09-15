@@ -40,33 +40,26 @@ public class HidrtbCultivoConfiguration : IEntityTypeConfiguration<HidrtbCultivo
     }
 }
 
-/// <summary>Configuración EF de HidrtbSensor.</summary>
-public class HidrtbSensorConfiguration : IEntityTypeConfiguration<HidrtbSensor>
+/// <summary>Configuración EF de HidrtbSensorMeta.</summary>
+public class HidrtbSensorMetaConfiguration : IEntityTypeConfiguration<HidrtbSensorMeta>
 {
     /// <inheritdoc />
-    public void Configure(EntityTypeBuilder<HidrtbSensor> builder)
+    public void Configure(EntityTypeBuilder<HidrtbSensorMeta> builder)
     {
-        builder.ToTable("HidrtbSensor", t => t.ExcludeFromMigrations());
-        builder.HasKey(x => x.SensId);
-        builder.Property(x => x.SensId).HasColumnName("Sens_Id").ValueGeneratedOnAdd();
+        builder.ToTable("HidrtbSensorMeta", t => t.ExcludeFromMigrations());
+        builder.HasKey(x => x.MetaId);
+        builder.Property(x => x.MetaId).HasColumnName("Meta_Id").ValueGeneratedOnAdd();
         builder.Property(x => x.SensNombre).HasColumnName("Sens_Nombre").HasMaxLength(50).IsRequired();
-        builder.Property(x => x.RedId).HasColumnName("Red_Id");
         builder.Property(x => x.CultId).HasColumnName("Cult_Id");
-        builder.Property(x => x.SensLatitud).HasColumnName("Sens_Latitud").HasPrecision(10, 7);
-        builder.Property(x => x.SensLongitud).HasColumnName("Sens_Longitud").HasPrecision(10, 7);
-        builder.Property(x => x.SensEstado).HasColumnName("Sens_Estado").HasMaxLength(50);
-        builder.Property(x => x.SensConectividad).HasColumnName("Sens_Conectividad").HasMaxLength(20);
         builder.Property(x => x.SensFinca).HasColumnName("Sens_Finca").HasMaxLength(150);
-        builder.Property(x => x.SensCanales).HasColumnName("Sens_Canales");
-        builder.Property(x => x.SensActivo).HasColumnName("Sens_Activo");
-        builder.Property(x => x.SensFechaCreacion).HasColumnName("Sens_FechaCreacion");
-        builder.Property(x => x.SensFechaActualizacion).HasColumnName("Sens_FechaActualizacion");
         builder.Property(x => x.SensCcEstimado).HasColumnName("Sens_CCEstimado").HasPrecision(5, 2);
         builder.Property(x => x.SensMetodoCc).HasColumnName("Sens_MetodoCC").HasMaxLength(50);
         builder.Property(x => x.SensFechaEstimacionCc).HasColumnName("Sens_FechaEstimacionCC");
+        builder.Property(x => x.MetaActivo).HasColumnName("Meta_Activo");
+        builder.Property(x => x.MetaFechaCreacion).HasColumnName("Meta_FechaCreacion");
+        builder.Property(x => x.MetaFechaActualizacion).HasColumnName("Meta_FechaActualizacion");
         builder.HasIndex(x => x.SensNombre).IsUnique();
-        builder.HasOne(x => x.Red).WithMany(r => r.Sensores).HasForeignKey(x => x.RedId);
-        builder.HasOne(x => x.Cultivo).WithMany(c => c.Sensores).HasForeignKey(x => x.CultId);
+        builder.HasOne(x => x.Cultivo).WithMany(c => c.SensorMetas).HasForeignKey(x => x.CultId);
     }
 }
 

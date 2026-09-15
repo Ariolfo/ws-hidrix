@@ -1,6 +1,6 @@
 /*
-  Catálogo Red–País, Cultivos y Sensores (persistidos).
-  Autor: AGROSAVIA · Hidrix | 2026-08-07
+  Catálogo Red–País, Cultivos y metadatos de sensor (cultivo/CC).
+  Autor: AGROSAVIA · Hidrix | 2026-09-15
 */
 USE [dbHidrix];
 GO
@@ -35,26 +35,22 @@ BEGIN
 END
 GO
 
-IF OBJECT_ID(N'dbo.HidrtbSensor', N'U') IS NULL
+IF OBJECT_ID(N'dbo.HidrtbSensorMeta', N'U') IS NULL
 BEGIN
-    CREATE TABLE dbo.HidrtbSensor (
-        Sens_Id            INT IDENTITY(1,1) NOT NULL,
-        Sens_Nombre        NVARCHAR(50)      NOT NULL,
-        Red_Id             INT               NOT NULL,
-        Cult_Id            INT               NULL,
-        Sens_Latitud       DECIMAL(10,7)     NULL,
-        Sens_Longitud      DECIMAL(10,7)     NULL,
-        Sens_Estado        NVARCHAR(50)      NULL,
-        Sens_Conectividad  NVARCHAR(20)      NULL,
-        Sens_Finca         NVARCHAR(150)     NULL,
-        Sens_Canales       INT               NOT NULL CONSTRAINT DF_HidrtbSensor_Canales DEFAULT (2),
-        Sens_Activo        BIT               NOT NULL CONSTRAINT DF_HidrtbSensor_Activo DEFAULT (1),
-        Sens_FechaCreacion DATETIME2(7)      NOT NULL CONSTRAINT DF_HidrtbSensor_Creacion DEFAULT (SYSUTCDATETIME()),
-        Sens_FechaActualizacion DATETIME2(7) NOT NULL CONSTRAINT DF_HidrtbSensor_Actualizacion DEFAULT (SYSUTCDATETIME()),
-        CONSTRAINT PK_HidrtbSensor PRIMARY KEY (Sens_Id),
-        CONSTRAINT UQ_HidrtbSensor_Nombre UNIQUE (Sens_Nombre),
-        CONSTRAINT FK_HidrtbSensor_Red FOREIGN KEY (Red_Id) REFERENCES dbo.HidrtbRed (Red_Id),
-        CONSTRAINT FK_HidrtbSensor_Cult FOREIGN KEY (Cult_Id) REFERENCES dbo.HidrtbCultivo (Cult_Id)
+    CREATE TABLE dbo.HidrtbSensorMeta (
+        Meta_Id                 INT IDENTITY(1,1) NOT NULL,
+        Sens_Nombre             NVARCHAR(50)      NOT NULL,
+        Cult_Id                 INT               NULL,
+        Sens_Finca              NVARCHAR(150)     NULL,
+        Sens_CCEstimado         DECIMAL(5, 2)     NULL,
+        Sens_MetodoCC           NVARCHAR(50)      NULL,
+        Sens_FechaEstimacionCC  DATETIME2(7)      NULL,
+        Meta_Activo             BIT               NOT NULL CONSTRAINT DF_HidrtbSensorMeta_Activo DEFAULT (1),
+        Meta_FechaCreacion      DATETIME2(7)      NOT NULL CONSTRAINT DF_HidrtbSensorMeta_Creacion DEFAULT (SYSUTCDATETIME()),
+        Meta_FechaActualizacion DATETIME2(7)      NOT NULL CONSTRAINT DF_HidrtbSensorMeta_Actualizacion DEFAULT (SYSUTCDATETIME()),
+        CONSTRAINT PK_HidrtbSensorMeta PRIMARY KEY (Meta_Id),
+        CONSTRAINT UQ_HidrtbSensorMeta_Nombre UNIQUE (Sens_Nombre),
+        CONSTRAINT FK_HidrtbSensorMeta_Cult FOREIGN KEY (Cult_Id) REFERENCES dbo.HidrtbCultivo (Cult_Id)
     );
 END
 GO

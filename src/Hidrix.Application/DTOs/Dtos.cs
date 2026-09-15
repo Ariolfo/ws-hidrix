@@ -157,8 +157,17 @@ public class SensorDto
     /// <summary>Ubicación textual.</summary>
     public string Location { get; set; } = string.Empty;
 
-    /// <summary>Estado: normal, drain, irrigate_deficit, no_data.</summary>
+    /// <summary>Estado de humedad: normal, drain, irrigate_deficit, no_data.</summary>
     public string Status { get; set; } = "no_data";
+
+    /// <summary>Conectividad de estación Visualiti (online/offline).</summary>
+    public string? Connectivity { get; set; }
+
+    /// <summary>Estación online según hardware-status.</summary>
+    public bool? Online { get; set; }
+
+    /// <summary>Estado de hardware de sensores Visualiti (bueno, desconocido…).</summary>
+    public string? HardwareStatus { get; set; }
 
     /// <summary>Última lectura.</summary>
     public DateTimeOffset LastReadingAt { get; set; }
@@ -169,10 +178,10 @@ public class SensorDto
     /// <summary>Mensaje de alerta opcional.</summary>
     public string? AlertMessage { get; set; }
 
-    /// <summary>Latitud.</summary>
+    /// <summary>Latitud (Visualiti hardware-status).</summary>
     public double? Latitude { get; set; }
 
-    /// <summary>Longitud.</summary>
+    /// <summary>Longitud (Visualiti hardware-status).</summary>
     public double? Longitude { get; set; }
 
     /// <summary>Zona horaria IANA del país de la red (p. ej. America/Bogota).</summary>
@@ -188,10 +197,10 @@ public class StationDto
     /// <summary>Nombre.</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Latitud media.</summary>
+    /// <summary>Latitud media (desde hardware-status).</summary>
     public double Latitude { get; set; }
 
-    /// <summary>Longitud media.</summary>
+    /// <summary>Longitud media (desde hardware-status).</summary>
     public double Longitude { get; set; }
 
     /// <summary>Cantidad de sensores lógicos.</summary>
@@ -199,6 +208,15 @@ public class StationDto
 
     /// <summary>Distancia en km al punto de consulta.</summary>
     public double? DistanceKm { get; set; }
+
+    /// <summary>True si alguna estación del grupo está online.</summary>
+    public bool? Online { get; set; }
+
+    /// <summary>Conectividad agregada (online si alguna online; si no offline).</summary>
+    public string? Connectivity { get; set; }
+
+    /// <summary>Estado de hardware agregado (peor estado del grupo o desconocido).</summary>
+    public string? HardwareStatus { get; set; }
 
     /// <summary>Sensores anidados (opcional).</summary>
     public List<SensorDto> Sensors { get; set; } = new();

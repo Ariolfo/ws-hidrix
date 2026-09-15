@@ -16,7 +16,4 @@ public class HidrtbRed
 
     /// <summary>Navegación al país.</summary>
     public HidrtbPais? Pais { get; set; }
-
-    /// <summary>Sensores de la red.</summary>
-    public ICollection<HidrtbSensor> Sensores { get; set; } = new List<HidrtbSensor>();
 }

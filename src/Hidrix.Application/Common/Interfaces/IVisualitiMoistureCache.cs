@@ -1,82 +1,78 @@
+using Hidrix.Application.Services;
+
 namespace Hidrix.Application.Common.Interfaces;
 
 /// <summary>
-/// Caché en memoria compartida (singleton) de sesión Visualiti: token, última lectura e histórico.
-/// Evita que el cliente HTTP tipado Transient pierda estado entre peticiones HTTP.
+/// Caché en memoria compartida (singleton) de sesión Visualiti:
+/// token, lecturas, devices, meta de estación e inventario construido.
 /// </summary>
 public interface IVisualitiMoistureCache
 {
-    /// <summary>
-    /// Intenta obtener el token Bearer vigente.
-    /// </summary>
-    /// <param name="token">Token si es válido.</param>
-    /// <returns>True si hay token usable.</returns>
+    /// <summary>Intenta obtener el token Bearer vigente.</summary>
     bool TryGetToken(out string token);
 
-    /// <summary>
-    /// Guarda el token con su expiración absoluta.
-    /// </summary>
-    /// <param name="token">Access token.</param>
-    /// <param name="expiresAt">Expiración UTC.</param>
+    /// <summary>Guarda el token con su expiración absoluta.</summary>
     void SetToken(string token, DateTimeOffset expiresAt);
 
-    /// <summary>
-    /// Ejecuta <paramref name="factory"/> bajo un candado de proceso único
-    /// (singleton) para evitar stampede de login cuando hay muchos HttpClient Transient.
-    /// </summary>
-    /// <param name="factory">Operación asíncrona (p. ej. login Visualiti).</param>
-    /// <param name="cancellationToken">Cancelación.</param>
-    /// <typeparam name="T">Tipo de resultado.</typeparam>
-    /// <returns>Resultado de la factory.</returns>
+    /// <summary>Ejecuta factory bajo candado exclusivo (p. ej. login).</summary>
     Task<T> RunExclusiveAsync<T>(
         Func<CancellationToken, Task<T>> factory,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Intenta obtener la última lectura cacheada del serial físico.
-    /// </summary>
-    /// <param name="physicalSerial">Serial M###.</param>
-    /// <param name="reading">Lectura o null cacheado.</param>
-    /// <returns>True si la entrada no ha expirado.</returns>
+    /// <summary>Última lectura cacheada del serial físico.</summary>
     bool TryGetLatest(string physicalSerial, out VisualitiReading? reading);
 
-    /// <summary>
-    /// Guarda la última lectura con TTL.
-    /// </summary>
-    /// <param name="physicalSerial">Serial M###.</param>
-    /// <param name="reading">Lectura o null.</param>
-    /// <param name="ttl">Tiempo de vida.</param>
+    /// <summary>Guarda la última lectura con TTL.</summary>
     void SetLatest(string physicalSerial, VisualitiReading? reading, TimeSpan ttl);
 
-    /// <summary>
-    /// Intenta obtener el histórico cacheado por serial y rango.
-    /// </summary>
-    /// <param name="physicalSerial">Serial M###.</param>
-    /// <param name="rangeKey">Clave de rango (today|7d|30d|6m).</param>
-    /// <param name="readings">Serie ordenada.</param>
-    /// <returns>True si la entrada no ha expirado.</returns>
+    /// <summary>Histórico cacheado por serial y rango.</summary>
     bool TryGetHistory(
         string physicalSerial,
         string rangeKey,
         out IReadOnlyList<VisualitiReading> readings);
 
-    /// <summary>
-    /// Guarda el histórico con TTL.
-    /// </summary>
-    /// <param name="physicalSerial">Serial M###.</param>
-    /// <param name="rangeKey">Clave de rango.</param>
-    /// <param name="readings">Serie.</param>
-    /// <param name="ttl">Tiempo de vida.</param>
+    /// <summary>Guarda el histórico con TTL.</summary>
     void SetHistory(
         string physicalSerial,
         string rangeKey,
         IReadOnlyList<VisualitiReading> readings,
         TimeSpan ttl);
 
-    /// <summary>
-    /// Busca en históricos cacheados del serial el punto más reciente (para alimentar «latest»).
-    /// </summary>
-    /// <param name="physicalSerial">Serial M###.</param>
-    /// <returns>Última lectura encontrada o null.</returns>
+    /// <summary>Último punto de históricos cacheados del serial.</summary>
     VisualitiReading? FindLatestFromHistory(string physicalSerial);
+
+    /// <summary>Inventario GET /api/devices (vigente).</summary>
+    bool TryGetDevices(out IReadOnlyList<VisualitiDevice> devices);
+
+    /// <summary>Guarda inventario de devices.</summary>
+    void SetDevices(IReadOnlyList<VisualitiDevice> devices, TimeSpan ttl);
+
+    /// <summary>Canales de estación (vigente).</summary>
+    bool TryGetStationSensors(int stationId, out VisualitiStationSensors sensors);
+
+    /// <summary>Guarda canales de estación.</summary>
+    void SetStationSensors(int stationId, VisualitiStationSensors sensors, TimeSpan ttl);
+
+    /// <summary>
+    /// Hardware-status. <paramref name="found"/> es true aunque el valor sea null (404 cacheado).
+    /// </summary>
+    bool TryGetHardware(int stationId, out VisualitiHardwareStatus? hardware, out bool found);
+
+    /// <summary>Guarda hardware-status (null = 404 / sin snapshot).</summary>
+    void SetHardware(int stationId, VisualitiHardwareStatus? hardware, TimeSpan ttl);
+
+    /// <summary>
+    /// Inventario físico construido. Si <paramref name="allowStale"/>, acepta entradas
+    /// dentro de la ventana hard-expire configurada al guardar.
+    /// </summary>
+    bool TryGetInventory(
+        out IReadOnlyList<PhysicalSensor> inventory,
+        out bool isStale,
+        bool allowStale = false);
+
+    /// <summary>Guarda inventario físico (fresh TTL + ventana stale adicional).</summary>
+    void SetInventory(
+        IReadOnlyList<PhysicalSensor> inventory,
+        TimeSpan ttl,
+        TimeSpan staleWindow);
 }

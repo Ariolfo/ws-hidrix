@@ -4,35 +4,38 @@ using Hidrix.Application.Services;
 namespace Hidrix.Application.Common.Interfaces;
 
 /// <summary>
-/// Catálogo de sensores persistido (reemplaza el array estático).
+/// Metadatos Hidrix de sensores Visualiti (cultivo, finca, CC).
+/// El inventario de estaciones vive en Visualiti.
 /// </summary>
 public interface ISensorCatalogService
 {
-    /// <summary>Lista sensores activos como PhysicalSensor.</summary>
+    /// <summary>Lista metadatos activos como PhysicalSensor (sin coords Visualiti).</summary>
     Task<IReadOnlyList<PhysicalSensor>> ListSensorsAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Lista sensores con coordenadas.</summary>
-    Task<IReadOnlyList<PhysicalSensor>> ListGeolocatedSensorsAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>Busca por serial físico o id lógico.</summary>
+    /// <summary>Busca metadatos por serial físico o id lógico.</summary>
     Task<PhysicalSensor?> GetSensorAsync(string sensorId, CancellationToken cancellationToken = default);
 
-    /// <summary>Lista DTOs agrupables por país/red.</summary>
+    /// <summary>Lista Visualiti + metadatos (cultivo/CC) para administración.</summary>
     Task<IReadOnlyList<CatalogSensorDto>> ListCatalogAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Obtiene un sensor del catálogo por id interno.</summary>
+    /// <summary>Obtiene metadatos por id interno.</summary>
     Task<CatalogSensorDto?> GetCatalogByIdAsync(int id, CancellationToken cancellationToken = default);
 
-    /// <summary>Crea un sensor manualmente.</summary>
-    Task<CatalogSensorDto> CreateAsync(CreateCatalogSensorRequest request, CancellationToken cancellationToken = default);
+    /// <summary>Crea o actualiza la relación sensor↔cultivo.</summary>
+    Task<CatalogSensorDto> AssignCropAsync(
+        AssignSensorCropRequest request,
+        CancellationToken cancellationToken = default);
 
-    /// <summary>Actualiza un sensor del catálogo.</summary>
-    Task<CatalogSensorDto> UpdateAsync(int id, CreateCatalogSensorRequest request, CancellationToken cancellationToken = default);
+    /// <summary>Actualiza cultivo/finca de un metadato existente.</summary>
+    Task<CatalogSensorDto> UpdateCropAsync(
+        int id,
+        AssignSensorCropRequest request,
+        CancellationToken cancellationToken = default);
 
-    /// <summary>Inactiva un sensor del catálogo (borrado lógico).</summary>
+    /// <summary>Quita la relación (borra cultivo/finca o inactiva el metadato).</summary>
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 
-    /// <summary>Guarda CC estimada, método y fecha en HidrtbSensor.</summary>
+    /// <summary>Guarda CC estimada, método y fecha en HidrtbSensorMeta.</summary>
     Task<CatalogSensorDto> SaveEstimatedFieldCapacityAsync(
         int id,
         SaveEstimatedFieldCapacityRequest request,

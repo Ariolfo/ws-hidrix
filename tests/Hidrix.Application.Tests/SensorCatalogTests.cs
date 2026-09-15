@@ -4,7 +4,7 @@ using Hidrix.Application.Services;
 namespace Hidrix.Application.Tests;
 
 /// <summary>
-/// Pruebas del catálogo estático de sensores.
+/// Pruebas de utilidades de sensores (ids, distancia, mapeo lógico).
 /// </summary>
 public class SensorCatalogTests
 {

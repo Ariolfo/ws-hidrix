@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -13,49 +12,37 @@ using Hidrix.Infrastructure.Options;
 namespace Hidrix.Infrastructure.Services;
 
 /// <summary>
-/// Cliente HTTP Visualiti. La caché de token/latest/histórico vive en
-/// <see cref="IVisualitiMoistureCache"/> (singleton) para sobrevivir al cliente tipado Transient.
-/// Tolera respuestas sin datos, timestamps con hora de un dígito y canales Cont Vol / Volumetrico.
+/// Cliente HTTP Visualiti. Token, devices, meta e histórico viven en
+/// <see cref="IVisualitiMoistureCache"/> (singleton) porque el cliente tipado es Transient.
 /// </summary>
 public partial class VisualitiClient : IVisualitiClient
 {
     private static readonly TimeSpan LatestTtl = TimeSpan.FromSeconds(600);
     private static readonly TimeSpan HistoryTtl = TimeSpan.FromSeconds(300);
-    private static readonly TimeSpan StationMetaTtl = TimeSpan.FromSeconds(600);
-
-    private readonly ConcurrentDictionary<int, (VisualitiStationSensors Value, DateTimeOffset Expires)> _stationSensors =
-        new();
-
-    private readonly ConcurrentDictionary<int, (VisualitiHardwareStatus? Value, DateTimeOffset Expires)> _stationHardware =
-        new();
 
     private readonly HttpClient _http;
     private readonly VisualitiOptions _options;
     private readonly ILogger<VisualitiClient> _logger;
     private readonly IVisualitiMoistureCache _cache;
-    private readonly ISensorCatalogService _catalog;
 
     /// <summary>
     /// Inicializa el cliente Visualiti.
     /// </summary>
-    /// <param name="http">HttpClient tipado.</param>
-    /// <param name="options">Opciones Visualiti.</param>
-    /// <param name="logger">Logger.</param>
-    /// <param name="cache">Caché singleton compartida.</param>
-    /// <param name="catalog">Catálogo de sensores (país → zona horaria).</param>
     public VisualitiClient(
         HttpClient http,
         IOptions<VisualitiOptions> options,
         ILogger<VisualitiClient> logger,
-        IVisualitiMoistureCache cache,
-        ISensorCatalogService catalog)
+        IVisualitiMoistureCache cache)
     {
         _http = http;
         _options = options.Value;
         _logger = logger;
         _cache = cache;
-        _catalog = catalog;
     }
+
+    private string ApiBase => _options.ResolveApiUrl();
+
+    private TimeSpan MetaTtl => _options.MetaCacheTtl;
 
     /// <inheritdoc />
     public async Task<VisualitiReading?> GetLatestReadingCachedAsync(
@@ -135,6 +122,56 @@ public partial class VisualitiClient : IVisualitiClient
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<VisualitiDevice>> GetDevicesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.Enabled)
+        {
+            return [];
+        }
+
+        if (_cache.TryGetDevices(out var cachedDevices))
+        {
+            return cachedDevices;
+        }
+
+        try
+        {
+            var token = await GetTokenAsync(cancellationToken);
+            if (string.IsNullOrEmpty(token))
+            {
+                return [];
+            }
+
+            var url = $"{ApiBase}/api/devices";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Visualiti devices {Status}", response.StatusCode);
+                return [];
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var parsed = ParseDevices(doc.RootElement);
+            if (parsed.Count > 0)
+            {
+                _cache.SetDevices(parsed, MetaTtl);
+            }
+
+            return parsed;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Error consultando Visualiti /api/devices");
+            return [];
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<VisualitiStationSensors?> GetStationSensorsAsync(
         int stationId,
         CancellationToken cancellationToken = default)
@@ -144,33 +181,41 @@ public partial class VisualitiClient : IVisualitiClient
             return null;
         }
 
-        if (_stationSensors.TryGetValue(stationId, out var cached) && cached.Expires > DateTimeOffset.UtcNow)
+        if (_cache.TryGetStationSensors(stationId, out var cachedSensors))
         {
-            return cached.Value;
+            return cachedSensors;
         }
 
-        var token = await GetTokenAsync(cancellationToken);
-        if (string.IsNullOrEmpty(token))
+        try
         {
+            var token = await GetTokenAsync(cancellationToken);
+            if (string.IsNullOrEmpty(token))
+            {
+                return null;
+            }
+
+            var url = $"{ApiBase}/api/devices/4/{stationId}/sensor";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Visualiti sensor list {Status} estación {Station}", response.StatusCode, stationId);
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var parsed = ParseStationSensors(doc.RootElement);
+            _cache.SetStationSensors(stationId, parsed, MetaTtl);
+            return parsed;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Error consultando sensores Visualiti estación {Station}", stationId);
             return null;
         }
-
-        var url = $"{_options.ApiUrl.TrimEnd('/')}/api/devices/4/{stationId}/sensor";
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        using var response = await _http.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogWarning("Visualiti sensor list {Status} estación {Station}", response.StatusCode, stationId);
-            return null;
-        }
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var parsed = ParseStationSensors(doc.RootElement);
-        _stationSensors[stationId] = (parsed, DateTimeOffset.UtcNow.Add(StationMetaTtl));
-        return parsed;
     }
 
     /// <inheritdoc />
@@ -183,39 +228,47 @@ public partial class VisualitiClient : IVisualitiClient
             return null;
         }
 
-        if (_stationHardware.TryGetValue(stationId, out var cached) && cached.Expires > DateTimeOffset.UtcNow)
+        if (_cache.TryGetHardware(stationId, out var cachedHardware, out var found) && found)
         {
-            return cached.Value;
+            return cachedHardware;
         }
 
-        var token = await GetTokenAsync(cancellationToken);
-        if (string.IsNullOrEmpty(token))
+        try
         {
+            var token = await GetTokenAsync(cancellationToken);
+            if (string.IsNullOrEmpty(token))
+            {
+                return null;
+            }
+
+            var url = $"{ApiBase}/api/devices/4/{stationId}/hardware-status";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _http.SendAsync(request, cancellationToken);
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _cache.SetHardware(stationId, null, TimeSpan.FromSeconds(120));
+                return null;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Visualiti hardware {Status} estación {Station}", response.StatusCode, stationId);
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var parsed = ParseHardwareStatus(doc.RootElement, stationId);
+            _cache.SetHardware(stationId, parsed, MetaTtl);
+            return parsed;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Error consultando hardware Visualiti estación {Station}", stationId);
             return null;
         }
-
-        var url = $"{_options.ApiUrl.TrimEnd('/')}/api/devices/4/{stationId}/hardware-status";
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-        using var response = await _http.SendAsync(request, cancellationToken);
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            _stationHardware[stationId] = (null, DateTimeOffset.UtcNow.Add(TimeSpan.FromSeconds(120)));
-            return null;
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogWarning("Visualiti hardware {Status} estación {Station}", response.StatusCode, stationId);
-            return null;
-        }
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var parsed = ParseHardwareStatus(doc.RootElement, stationId);
-        _stationHardware[stationId] = (parsed, DateTimeOffset.UtcNow.Add(StationMetaTtl));
-        return parsed;
     }
 
     /// <inheritdoc />
@@ -341,7 +394,7 @@ public partial class VisualitiClient : IVisualitiClient
 
         var startUnix = since.ToUnixTimeSeconds();
         var endUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var url = $"{_options.ApiUrl.TrimEnd('/')}/api/devices/4/{stationNum}/data/{startUnix}/{endUnix}";
+        var url = $"{ApiBase}/api/devices/4/{stationNum}/data/{startUnix}/{endUnix}";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -358,26 +411,19 @@ public partial class VisualitiClient : IVisualitiClient
         return ParsePayload(doc.RootElement, stationNum, timeZoneId);
     }
 
-    private async Task<string> ResolveTimeZoneForSerialAsync(
+    private Task<string> ResolveTimeZoneForSerialAsync(
         string sensorSerial,
         CancellationToken cancellationToken)
     {
+        _ = cancellationToken;
         var (physical, _) = SensorCatalog.SplitLogicalId(sensorSerial);
-
-        // M### → tz por estación sin tocar DbContext (seguro en paralelo).
         var station = ParseVisualitiStationId(physical);
         if (station is int n)
         {
-            return CountryTimeZoneResolver.ResolveForStation(n);
+            return Task.FromResult(CountryTimeZoneResolver.ResolveForStation(n));
         }
 
-        var sensor = await _catalog.GetSensorAsync(physical, cancellationToken);
-        if (sensor is not null)
-        {
-            return sensor.TimeZoneId;
-        }
-
-        return CountryTimeZoneResolver.DefaultTimeZoneId;
+        return Task.FromResult(CountryTimeZoneResolver.DefaultTimeZoneId);
     }
 
     /// <summary>
@@ -464,7 +510,7 @@ public partial class VisualitiClient : IVisualitiClient
                 password = _options.Password,
             };
 
-            using var response = await _http.PostAsJsonAsync(_options.LoginUrl, payload, ct);
+            using var response = await _http.PostAsJsonAsync(_options.ResolveLoginUrl(), payload, ct);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning(
@@ -512,6 +558,64 @@ public partial class VisualitiClient : IVisualitiClient
 
         var id = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
         return id > 0 ? id : null;
+    }
+
+    /// <summary>
+    /// Parsea GET /api/devices → inventario de estaciones del cliente.
+    /// </summary>
+    public static IReadOnlyList<VisualitiDevice> ParseDevices(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var devices = new List<VisualitiDevice>();
+        var seen = new HashSet<int>();
+        foreach (var item in root.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var stationRaw = item.TryGetProperty("estacion", out var estEl)
+                ? estEl.GetString()
+                : null;
+            if (!int.TryParse(stationRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var stationId)
+                || stationId <= 0
+                || !seen.Add(stationId))
+            {
+                continue;
+            }
+
+            var origenId = 4;
+            if (item.TryGetProperty("origen_id", out var origenIdEl))
+            {
+                if (origenIdEl.ValueKind == JsonValueKind.Number)
+                {
+                    origenId = origenIdEl.GetInt32();
+                }
+                else if (int.TryParse(origenIdEl.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedOrigen))
+                {
+                    origenId = parsedOrigen;
+                }
+            }
+
+            devices.Add(new VisualitiDevice
+            {
+                OrigenId = origenId,
+                Origen = item.TryGetProperty("origen", out var origenEl)
+                    ? origenEl.GetString() ?? string.Empty
+                    : string.Empty,
+                StationId = stationId,
+                DeviceName = item.TryGetProperty("name_device", out var nameEl)
+                    ? nameEl.GetString()?.Trim() ?? string.Empty
+                    : string.Empty,
+            });
+        }
+
+        return devices.OrderBy(d => d.StationId).ToList();
     }
 
     /// <summary>
