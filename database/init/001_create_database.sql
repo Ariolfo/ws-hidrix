@@ -1,11 +1,11 @@
 /*
-  Crea la base de datos dbYarqua en SQL Server 2019.
+  Crea la base de datos dbHidrix en SQL Server 2019.
   Collation corporativa DTI: Modern_Spanish_CI_AS
-  Autor: AGROSAVIA · FONTAGRO AGRO 4.0
+  Autor: AGROSAVIA · Hidrix
 */
-IF DB_ID(N'dbYarqua') IS NULL
+IF DB_ID(N'dbHidrix') IS NULL
 BEGIN
-    CREATE DATABASE [dbYarqua]
+    CREATE DATABASE [dbHidrix]
         COLLATE Modern_Spanish_CI_AS;
 END
 GO

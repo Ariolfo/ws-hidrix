@@ -1,20 +1,20 @@
 /*
   Migra BD existente:
-  - Elimina YarqtbBug (reemplazada por Serilog → YarqtbLog)
-  - Crea YarqtbLog para Serilog.Sinks.MSSqlServer
+  - Elimina HidrtbBug (reemplazada por Serilog → HidrtbLog)
+  - Crea HidrtbLog para Serilog.Sinks.MSSqlServer
 */
-USE [dbYarqua];
+USE [dbHidrix];
 GO
 
-IF OBJECT_ID(N'dbo.YarqtbBug', N'U') IS NOT NULL
+IF OBJECT_ID(N'dbo.HidrtbBug', N'U') IS NOT NULL
 BEGIN
-    DROP TABLE dbo.YarqtbBug;
+    DROP TABLE dbo.HidrtbBug;
 END
 GO
 
-IF OBJECT_ID(N'dbo.YarqtbLog', N'U') IS NULL
+IF OBJECT_ID(N'dbo.HidrtbLog', N'U') IS NULL
 BEGIN
-    CREATE TABLE dbo.YarqtbLog (
+    CREATE TABLE dbo.HidrtbLog (
         Id              INT IDENTITY(1,1) NOT NULL,
         Message         NVARCHAR(MAX) NULL,
         MessageTemplate NVARCHAR(MAX) NULL,
@@ -22,9 +22,9 @@ BEGIN
         TimeStamp       DATETIME NOT NULL,
         Exception       NVARCHAR(MAX) NULL,
         Properties      NVARCHAR(MAX) NULL,
-        CONSTRAINT PK_YarqtbLog PRIMARY KEY CLUSTERED (Id)
+        CONSTRAINT PK_HidrtbLog PRIMARY KEY CLUSTERED (Id)
     );
-    CREATE INDEX idx_YarqtbLog_TimeStamp ON dbo.YarqtbLog (TimeStamp);
-    CREATE INDEX idx_YarqtbLog_Level ON dbo.YarqtbLog (Level);
+    CREATE INDEX idx_HidrtbLog_TimeStamp ON dbo.HidrtbLog (TimeStamp);
+    CREATE INDEX idx_HidrtbLog_Level ON dbo.HidrtbLog (Level);
 END
 GO
