@@ -141,9 +141,19 @@ Recursos objetivo: **Azure SQL Database** + **Azure Container Registry** + **Con
    local). Ver comentarios en `scripts/deploy-azure.sh` y `.env.azure.example`
    para el detalle de cada recurso.
 
-3. Ejecutar los scripts de `database/init/` contra la Azure SQL Database creada
-   (mismo orden que usa `database/install.sh`, pero apuntando al server
-   `*.database.windows.net` en vez de al contenedor local).
+3. Inicializar el esquema en la Azure SQL Database creada. **No** uses
+   `database/install.sh` ni los `.sql` tal cual: están escritos con
+   `USE [dbYarqua];`, y Azure SQL Database (a) no soporta el statement `USE`
+   para cambiar de base y (b) tu base probablemente no se llama `dbYarqua`.
+   Usa en su lugar:
+
+   ```bash
+   ./scripts/init-azure-db.sh   # requiere sqlcmd; lee .env.azure
+   ```
+
+   Omite `001_create_database.sql` y `006_rename_to_dbyarqua.sql` (crean/renombran
+   la BD; en Azure ya existe con el nombre que le pusiste) y le quita el bloque
+   `USE [dbYarqua]; / GO` a los demás antes de ejecutarlos contra tu BD.
 
 4. Variables de entorno en producción (`ConnectionStrings__DefaultConnection`,
    `Jwt__Secret`, `Visualiti__*`) se inyectan como **secrets/env vars del
