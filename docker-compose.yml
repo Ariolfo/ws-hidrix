@@ -1,27 +1,29 @@
-# Contenedor SQL Server 2019 CU25 (15.0.4355.3) — Yarqua
+# Contenedor SQL Server 2019 CU25 (15.0.4355.3) — Hidrix
 # Imagen local alineada con el motor corporativo AGROSAVIA.
 services:
   mssql:
-    image: local/dragro-mssql:2019-cu25-15.0.4355.3
-    container_name: yarqua_mssql
-    hostname: yarqua_mssql
+    image: mcr.microsoft.com/mssql/server:2019-CU25-ubuntu-20.04
+    container_name: hidrix_mssql
+    hostname: hidrix_mssql
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "Yarqua_Str0ng!Passw0rd"
+      MSSQL_SA_PASSWORD: "Hidrix_Str0ng!Passw0rd"
       MSSQL_PID: Developer
       MSSQL_AGENT_ENABLED: "true"
       MSSQL_EXPECTED_VERSION: "15.0.4355.3"
     ports:
       - "1433:1433"
     volumes:
-      - yarqua_mssql_data:/var/opt/mssql
+      - hidrix_mssql_data:/var/opt/mssql
     healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Yarqua_Str0ng!Passw0rd" -Q "SELECT 1" -b || exit 1
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Hidrix_Str0ng!Passw0rd" -Q "SELECT 1" -b || exit 1
       interval: 10s
       timeout: 5s
       retries: 20
       start_period: 40s
 
 volumes:
-  yarqua_mssql_data:
+  hidrix_mssql_data:
+    external: true
+    name: hidrix_mssql_data
