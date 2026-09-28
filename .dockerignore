@@ -1,0 +1,24 @@
+**/bin/
+**/obj/
+**/out/
+**/TestResults/
+
+.git
+.gitignore
+.dockerignore
+.vs/
+.idea/
+*.user
+
+# Secretos locales: nunca deben entrar a la imagen.
+.env
+.env.*
+!.env.example
+!.env.azure.example
+secrets.json
+
+tests/
+database/
+docker-compose.yml
+README.md
+*.md

@@ -1,6 +1,8 @@
 ## Secretos y entorno local
 .env
 .env.local
+.env.azure
+secrets.json
 *.user
 
 ## Build

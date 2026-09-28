@@ -110,3 +110,44 @@ dotnet test
 - Estaciones: `fin-{slug}` (finca) o `sn-M###` (sensor sin finca).
 - Humedad: `Cont Vol1` → depth10cm, `Cont Vol2` → depth30cm; valor ≤ 1.5 → ×100.
 - Irrigation **no** forma parte de este backend (lógica en la app).
+
+## Despliegue en Azure (Container Apps)
+
+Recursos objetivo: **Azure SQL Database** + **Azure Container Registry** + **Container App**.
+
+1. Construir la imagen localmente (opcional, para probar):
+
+   ```bash
+   docker build -t yarqua-api:local .
+   docker run -p 8080:8080 --env-file .env yarqua-api:local
+   ```
+
+   El `Dockerfile` es multi-stage (.NET 9 SDK → runtime `aspnet:9.0`), corre como
+   usuario no-root y expone el puerto **8080** (`ASPNETCORE_URLS=http://+:8080`).
+   El contenedor **falla rápido al iniciar** si no puede conectar a la base de
+   datos (el sink de Serilog hacia `YarqtbLog` se inicializa de forma eager),
+   así que la BD debe estar accesible y creada antes de arrancar la app.
+
+2. Aprovisionar Azure SQL, ACR, Container Apps Environment y el Container App:
+
+   ```bash
+   cp .env.azure.example .env.azure   # completar con los valores reales
+   az login
+   ./scripts/deploy-azure.sh
+   ```
+
+   El script es idempotente (re-ejecutarlo actualiza imagen y variables) y usa
+   `az acr build` para compilar la imagen dentro de Azure (no requiere Docker
+   local). Ver comentarios en `scripts/deploy-azure.sh` y `.env.azure.example`
+   para el detalle de cada recurso.
+
+3. Ejecutar los scripts de `database/init/` contra la Azure SQL Database creada
+   (mismo orden que usa `database/install.sh`, pero apuntando al server
+   `*.database.windows.net` en vez de al contenedor local).
+
+4. Variables de entorno en producción (`ConnectionStrings__DefaultConnection`,
+   `Jwt__Secret`, `Visualiti__*`) se inyectan como **secrets/env vars del
+   Container App**, nunca dentro de la imagen: `.env` y `.env.azure` están en
+   `.gitignore` y excluidos vía `.dockerignore`. Para Azure SQL la cadena de
+   conexión debe usar `Encrypt=True;TrustServerCertificate=False` (a diferencia
+   del `Encrypt=False` usado con el SQL Server local en `docker-compose.yml`).
