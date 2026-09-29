@@ -1,13 +1,13 @@
-**/bin/
-**/obj/
-**/out/
-**/TestResults/
+**/bin
+**/obj
+**/out
+**/TestResults
 
 .git
 .gitignore
 .dockerignore
-.vs/
-.idea/
+.vs
+.idea
 *.user
 
 # Secretos locales: nunca deben entrar a la imagen.

@@ -5,16 +5,16 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copia solo los .csproj primero para cachear `dotnet restore`.
-COPY src/Yarqua.Domain/Yarqua.Domain.csproj src/Yarqua.Domain/
-COPY src/Yarqua.Application/Yarqua.Application.csproj src/Yarqua.Application/
-COPY src/Yarqua.Infrastructure/Yarqua.Infrastructure.csproj src/Yarqua.Infrastructure/
-COPY src/Yarqua.Api/Yarqua.Api.csproj src/Yarqua.Api/
+COPY src/Hidrix.Domain/Hidrix.Domain.csproj src/Hidrix.Domain/
+COPY src/Hidrix.Application/Hidrix.Application.csproj src/Hidrix.Application/
+COPY src/Hidrix.Infrastructure/Hidrix.Infrastructure.csproj src/Hidrix.Infrastructure/
+COPY src/Hidrix.Api/Hidrix.Api.csproj src/Hidrix.Api/
 
-RUN dotnet restore src/Yarqua.Api/Yarqua.Api.csproj
+RUN dotnet restore src/Hidrix.Api/Hidrix.Api.csproj
 
 COPY src/ src/
 
-RUN dotnet publish src/Yarqua.Api/Yarqua.Api.csproj \
+RUN dotnet publish src/Hidrix.Api/Hidrix.Api.csproj \
     -c Release \
     -o /app/publish \
     --no-restore
@@ -36,4 +36,4 @@ COPY --from=build /app/publish .
 USER appuser
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "Yarqua.Api.dll"]
+ENTRYPOINT ["dotnet", "Hidrix.Api.dll"]

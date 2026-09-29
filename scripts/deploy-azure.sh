@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Aprovisiona (si no existen) y despliega ws-yarqua en Azure:
+# Aprovisiona (si no existen) y despliega ws-hidrix en Azure:
 #   Resource Group -> Azure SQL (Server + DB) -> Container Registry -> Container Apps Env -> Container App
 #
 # Requisitos: az CLI logueado (`az login`) y con la suscripción correcta

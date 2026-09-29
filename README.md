@@ -144,14 +144,14 @@ Recursos objetivo: **Azure SQL Database** + **Azure Container Registry** + **Con
 1. Construir la imagen localmente (opcional, para probar):
 
    ```bash
-   docker build -t yarqua-api:local .
-   docker run -p 8080:8080 --env-file .env yarqua-api:local
+   docker build -t hidrix-api:local .
+   docker run -p 8080:8080 --env-file .env hidrix-api:local
    ```
 
    El `Dockerfile` es multi-stage (.NET 9 SDK → runtime `aspnet:9.0`), corre como
    usuario no-root y expone el puerto **8080** (`ASPNETCORE_URLS=http://+:8080`).
    El contenedor **falla rápido al iniciar** si no puede conectar a la base de
-   datos (el sink de Serilog hacia `YarqtbLog` se inicializa de forma eager),
+   datos (el sink de Serilog hacia `HidrtbLog` se inicializa de forma eager),
    así que la BD debe estar accesible y creada antes de arrancar la app.
 
 2. Aprovisionar Azure SQL, ACR, Container Apps Environment y el Container App:
@@ -169,17 +169,20 @@ Recursos objetivo: **Azure SQL Database** + **Azure Container Registry** + **Con
 
 3. Inicializar el esquema en la Azure SQL Database creada. **No** uses
    `database/install.sh` ni los `.sql` tal cual: están escritos con
-   `USE [dbYarqua];`, y Azure SQL Database (a) no soporta el statement `USE`
-   para cambiar de base y (b) tu base probablemente no se llama `dbYarqua`.
+   `USE [dbHidrix];`, y Azure SQL Database (a) no soporta el statement `USE`
+   para cambiar de base y (b) tu base probablemente no se llama `dbHidrix`.
    Usa en su lugar:
 
    ```bash
-   ./scripts/init-azure-db.sh   # requiere sqlcmd; lee .env.azure
+   ./scripts/init-azure-db.sh           # requiere sqlcmd y dotnet-ef; lee .env.azure
+   ./scripts/init-azure-db.sh --reset   # BORRA todos los objetos de la BD y migra desde cero
    ```
 
-   Omite `001_create_database.sql` y `006_rename_to_dbyarqua.sql` (crean/renombran
-   la BD; en Azure ya existe con el nombre que le pusiste) y le quita el bloque
-   `USE [dbYarqua]; / GO` a los demás antes de ejecutarlos contra tu BD.
+   Omite `001_create_database.sql` y `006_rename_to_dbhidrix.sql` (en Azure la BD
+   ya existe con el nombre que le pusiste), le quita el bloque
+   `USE [dbHidrix]; / GO` a los demás y aplica la migración EF de Identity entre
+   `012_prepare_identity.sql` y `011`/`013`–`017`. Tu IP debe estar permitida en
+   el firewall del SQL server.
 
 4. Variables de entorno en producción (`ConnectionStrings__DefaultConnection`,
    `Jwt__Secret`, `Visualiti__*`) se inyectan como **secrets/env vars del
