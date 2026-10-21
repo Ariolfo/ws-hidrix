@@ -1,8 +1,8 @@
 /*
   Catálogo Red–País, Cultivos y metadatos de sensor (cultivo/CC).
-  Autor: AGROSAVIA · Hidrix | 2026-09-15
+  Autor: AGROSAVIA · Reguemos | 2026-09-15
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF OBJECT_ID(N'dbo.HidrtbRed', N'U') IS NULL

@@ -7,9 +7,9 @@
   - Honduras: departamentos (admin1) y municipios (admin2) — 18 deptos, 298 municipios (coincidente con INE HN).
   - País: códigos numéricos ISO 3166-1: ECUADOR=218, HONDURAS=340.
   - Colombia permanece en 004_seed_colombia_geo_full.sql (DANE).
-  Autor: AGROSAVIA · Hidrix | 2026-08-07
+  Autor: AGROSAVIA · Reguemos | 2026-08-07
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 MERGE dbo.HidrtbPais AS t

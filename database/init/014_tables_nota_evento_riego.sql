@@ -1,9 +1,9 @@
 /*
   Notas de evento de riego por usuario (cliente).
-  Convención DTI Hidrix: Hidrtb* / Evri_*
-  Autor: AGROSAVIA · Hidrix | 2026-08-24
+  Convención DTI Reguemos: Hidrtb* / Evri_*
+  Autor: AGROSAVIA · Reguemos | 2026-08-24
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF OBJECT_ID(N'dbo.HidrtbNotaEventoRiego', N'U') IS NULL

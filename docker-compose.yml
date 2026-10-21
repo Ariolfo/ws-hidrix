@@ -1,4 +1,4 @@
-# Contenedor SQL Server 2019 CU25 (15.0.4355.3) — Hidrix
+# Contenedor SQL Server 2019 CU25 (15.0.4355.3) — Reguemos
 # Imagen local alineada con el motor corporativo AGROSAVIA.
 services:
   mssql:

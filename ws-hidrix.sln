@@ -5,17 +5,17 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hidrix.Domain", "src\Hidrix.Domain\Hidrix.Domain.csproj", "{2D53C2D0-BEB2-4396-9327-84D7EA169F12}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Reguemos.Domain", "src\Reguemos.Domain\Reguemos.Domain.csproj", "{2D53C2D0-BEB2-4396-9327-84D7EA169F12}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hidrix.Application", "src\Hidrix.Application\Hidrix.Application.csproj", "{9B347DC8-D3C0-4D29-9004-AF6275103594}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Reguemos.Application", "src\Reguemos.Application\Reguemos.Application.csproj", "{9B347DC8-D3C0-4D29-9004-AF6275103594}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hidrix.Infrastructure", "src\Hidrix.Infrastructure\Hidrix.Infrastructure.csproj", "{C85D0EB2-6B77-4FAA-A793-46530B993350}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Reguemos.Infrastructure", "src\Reguemos.Infrastructure\Reguemos.Infrastructure.csproj", "{C85D0EB2-6B77-4FAA-A793-46530B993350}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hidrix.Api", "src\Hidrix.Api\Hidrix.Api.csproj", "{A2F20DDE-138D-4B58-8140-9EA2FBD7C44E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Reguemos.Api", "src\Reguemos.Api\Reguemos.Api.csproj", "{A2F20DDE-138D-4B58-8140-9EA2FBD7C44E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hidrix.Application.Tests", "tests\Hidrix.Application.Tests\Hidrix.Application.Tests.csproj", "{1DB9AE98-F0FE-4D99-9662-FB84A09231C2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Reguemos.Application.Tests", "tests\Reguemos.Application.Tests\Reguemos.Application.Tests.csproj", "{1DB9AE98-F0FE-4D99-9662-FB84A09231C2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

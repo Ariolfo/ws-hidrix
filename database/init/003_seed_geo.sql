@@ -2,9 +2,9 @@
   Semilla geográfica base — países ISO 3166-1 numéricos.
   Departamentos/ciudades Colombia: 004_seed_colombia_geo_full.sql (DANE).
   Ecuador/Honduras: 010_seed_ecuador_honduras.sql (GeoNames / ISO 3166-2).
-  Autor: AGROSAVIA · Hidrix | 2026-08-07
+  Autor: AGROSAVIA · Reguemos | 2026-08-07
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 MERGE dbo.HidrtbPais AS t

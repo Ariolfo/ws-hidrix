@@ -2,9 +2,9 @@
   Normaliza FKs geográficas en BD existente:
   - Ciudad solo → Departamento (quita Pais_Id / Depo_Cod)
   - Usuario solo → Ciudad (Ciu_Id)
-  Autor: AGROSAVIA · Hidrix | 2026-08-07
+  Autor: AGROSAVIA · Reguemos | 2026-08-07
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 /* -------- Ciudad -------- */

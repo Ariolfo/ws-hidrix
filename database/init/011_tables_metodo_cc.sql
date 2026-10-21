@@ -1,8 +1,8 @@
 /*
   Catálogo de métodos para determinar capacidad de campo (CC).
-  Autor: AGROSAVIA · Hidrix | 2026-08-07
+  Autor: AGROSAVIA · Reguemos | 2026-08-07
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF OBJECT_ID(N'dbo.HidrtbMetodoCC', N'U') IS NULL

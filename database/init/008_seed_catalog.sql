@@ -1,9 +1,9 @@
 /*
   Semilla: redes–país y cultivos (calculadora).
   El inventario de sensores vive en Visualiti; cultivo/CC en HidrtbSensorMeta.
-  Autor: AGROSAVIA · Hidrix | 2026-09-15
+  Autor: AGROSAVIA · Reguemos | 2026-09-15
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 /* Redes ↔ país */

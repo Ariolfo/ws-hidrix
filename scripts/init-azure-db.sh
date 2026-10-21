@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Inicializa el esquema Hidrtb* en una Azure SQL Database ya creada (p.ej. "hidrix").
+# Inicializa el esquema Hidrtb* en una Azure SQL Database ya creada (p.ej. "reguemos").
 #
 # Los scripts en database/init/*.sql están escritos para SQL Server local con
-# `USE [dbHidrix];` al inicio. Azure SQL Database:
+# `USE [dbReguemos];` al inicio. Azure SQL Database:
 #   - No soporta el statement USE para cambiar/fijar la base de datos.
-#   - Ya tiene el nombre de base que tú le hayas puesto (ej. "hidrix"),
-#     no "dbHidrix".
-# Por eso este script omite 001_create_database.sql y 006_rename_to_dbhidrix.sql
+#   - Ya tiene el nombre de base que tú le hayas puesto (ej. "reguemos"),
+#     no "dbReguemos".
+# Por eso este script omite 001_create_database.sql y 006_rename_to_dbreguemos.sql
 # (crean la BD / ajustan collation; ya existe) y a los demás les quita el bloque
-# `USE [dbHidrix]; / GO` antes de ejecutarlos, conectando directo a la BD destino.
+# `USE [dbReguemos]; / GO` antes de ejecutarlos, conectando directo a la BD destino.
 #
 # Orden:
 #   002..010, 012  -> geo, logs, catálogo, prepara Identity
@@ -70,7 +70,7 @@ run_sql() {
 run_init_file() {
   local f="$1"
   echo "==> $f"
-  sed -e '/^USE \[dbHidrix\];$/{N;/\nGO$/d}' "$ROOT/database/init/$f" > "$TMP_DIR/$f"
+  sed -e '/^USE \[dbReguemos\];$/{N;/\nGO$/d}' "$ROOT/database/init/$f" > "$TMP_DIR/$f"
   run_sql -i "$TMP_DIR/$f"
 }
 
@@ -118,8 +118,8 @@ done
 
 echo "==> Migraciones EF (Identity)"
 dotnet ef migrations script --idempotent \
-  --project "$ROOT/src/Hidrix.Infrastructure" \
-  --startup-project "$ROOT/src/Hidrix.Api" \
+  --project "$ROOT/src/Reguemos.Infrastructure" \
+  --startup-project "$ROOT/src/Reguemos.Api" \
   -o "$TMP_DIR/ef_migrations.sql"
 run_sql -i "$TMP_DIR/ef_migrations.sql"
 

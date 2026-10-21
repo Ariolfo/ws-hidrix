@@ -1,9 +1,9 @@
 /*
-  Metadatos Hidrix por sensor Visualiti (cultivo, finca, CC).
+  Metadatos Reguemos por sensor Visualiti (cultivo, finca, CC).
   Migra desde HidrtbSensor y elimina el inventario SQL de sensores.
-  Autor: AGROSAVIA · Hidrix | 2026-09-15
+  Autor: AGROSAVIA · Reguemos | 2026-09-15
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF OBJECT_ID(N'dbo.HidrtbSensorMeta', N'U') IS NULL

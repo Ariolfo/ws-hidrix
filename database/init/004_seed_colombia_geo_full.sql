@@ -1,9 +1,9 @@
 /*
   Catálogo geográfico completo Colombia (33 deptos / 1122 ciudades).
   Conserva Ecuador y Honduras del seed base.
-  Autor: AGROSAVIA · Hidrix | 2026-07-22
+  Autor: AGROSAVIA · Reguemos | 2026-07-22
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 -- Reemplazar solo Colombia para alinear IDs/códigos con el catálogo maestro

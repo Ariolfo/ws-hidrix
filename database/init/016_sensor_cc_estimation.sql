@@ -1,8 +1,8 @@
 /*
   CC estimada por sensor (legado HidrtbSensor; vigente en HidrtbSensorMeta vía 017).
-  Autor: AGROSAVIA · Hidrix | 2026-08-31
+  Autor: AGROSAVIA · Reguemos | 2026-08-31
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF OBJECT_ID(N'dbo.HidrtbSensor', N'U') IS NOT NULL

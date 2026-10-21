@@ -2,9 +2,9 @@
   Esquema Hidrtb* — nomenclatura PAUTAS_BD / Guía de Arquitectura AGROSAVIA.
   Geo: País → Departamento → Ciudad (sin FK redundantes).
   Usuario referencia solo Ciudad.
-  Autor: AGROSAVIA · Hidrix | 2026-08-07
+  Autor: AGROSAVIA · Reguemos | 2026-08-07
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF OBJECT_ID(N'dbo.HidrtbPais', N'U') IS NULL

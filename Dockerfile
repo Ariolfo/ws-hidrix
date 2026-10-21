@@ -5,16 +5,16 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copia solo los .csproj primero para cachear `dotnet restore`.
-COPY src/Hidrix.Domain/Hidrix.Domain.csproj src/Hidrix.Domain/
-COPY src/Hidrix.Application/Hidrix.Application.csproj src/Hidrix.Application/
-COPY src/Hidrix.Infrastructure/Hidrix.Infrastructure.csproj src/Hidrix.Infrastructure/
-COPY src/Hidrix.Api/Hidrix.Api.csproj src/Hidrix.Api/
+COPY src/Reguemos.Domain/Reguemos.Domain.csproj src/Reguemos.Domain/
+COPY src/Reguemos.Application/Reguemos.Application.csproj src/Reguemos.Application/
+COPY src/Reguemos.Infrastructure/Reguemos.Infrastructure.csproj src/Reguemos.Infrastructure/
+COPY src/Reguemos.Api/Reguemos.Api.csproj src/Reguemos.Api/
 
-RUN dotnet restore src/Hidrix.Api/Hidrix.Api.csproj
+RUN dotnet restore src/Reguemos.Api/Reguemos.Api.csproj
 
 COPY src/ src/
 
-RUN dotnet publish src/Hidrix.Api/Hidrix.Api.csproj \
+RUN dotnet publish src/Reguemos.Api/Reguemos.Api.csproj \
     -c Release \
     -o /app/publish \
     --no-restore
@@ -36,4 +36,4 @@ COPY --from=build /app/publish .
 USER appuser
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "Hidrix.Api.dll"]
+ENTRYPOINT ["dotnet", "Reguemos.Api.dll"]

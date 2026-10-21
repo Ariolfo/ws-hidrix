@@ -3,9 +3,9 @@
   - Elimina HidrtbUsuario antiguo (BIGINT) incompatible con Identity (NVARCHAR Id).
   - Elimina tablas legacy ya no usadas por el código actual.
   Los usuarios previos deben volver a registrarse (no había hash de contraseña).
-  Autor: AGROSAVIA · Hidrix | 2026-08-12
+  Autor: AGROSAVIA · Reguemos | 2026-08-12
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 /* ---- Tablas legacy fuera del modelo actual ---- */

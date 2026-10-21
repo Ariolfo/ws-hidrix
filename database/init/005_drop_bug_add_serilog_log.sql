@@ -3,7 +3,7 @@
   - Elimina HidrtbBug (reemplazada por Serilog → HidrtbLog)
   - Crea HidrtbLog para Serilog.Sinks.MSSqlServer
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF OBJECT_ID(N'dbo.HidrtbBug', N'U') IS NOT NULL

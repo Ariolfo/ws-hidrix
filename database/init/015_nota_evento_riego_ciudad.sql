@@ -1,8 +1,8 @@
 /*
   Lugar de nota evento riego: ciudad del catálogo (reemplaza GPS opcional).
-  Autor: AGROSAVIA · Hidrix | 2026-08-24
+  Autor: AGROSAVIA · Reguemos | 2026-08-24
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF COL_LENGTH(N'dbo.HidrtbNotaEventoRiego', N'Ciu_Id') IS NULL

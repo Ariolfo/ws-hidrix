@@ -9,8 +9,8 @@ export DOTNET_ROOT="$HOME/.dotnet"
 export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"
 # Requiere ConnectionStrings__DefaultConnection (p. ej. desde .env)
 dotnet ef database update \
-    --project src/Hidrix.Infrastructure \
-    --startup-project src/Hidrix.Api
+    --project src/Reguemos.Infrastructure \
+    --startup-project src/Reguemos.Api
 
 # Opcional: definir Seed__AdminEmail / Seed__AdminPassword en .env
 # para crear el admin al iniciar la API.

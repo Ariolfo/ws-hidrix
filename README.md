@@ -1,6 +1,6 @@
-# Hidrix Backend (ws-hidrix)
+# Reguemos Backend (ws-hidrix)
 
-API .NET 9 Clean Architecture + CQRS para la app Ionic de Hidrix.  
+API .NET 9 Clean Architecture + CQRS para la app Ionic de Reguemos.  
 Incluye **SQL Server** (scripts + Docker) en este mismo repositorio.
 
 ## Contenido del repo
@@ -17,11 +17,11 @@ Incluye **SQL Server** (scripts + Docker) en este mismo repositorio.
 
 | Proyecto | Rol |
 |----------|-----|
-| **Hidrix.Domain** | Entidades `Hidrtb*` (sin dependencias) |
-| **Hidrix.Application** | Casos de uso MediatR, FluentValidation, DTOs, repositorios (contratos) |
-| **Hidrix.Infrastructure** | EF Core SQL Server, repositorios, JWT HS256, Visualiti, geo |
-| **Hidrix.Api** | Controllers `/api/v1`, Swagger, CORS, Serilog → `HidrtbLog` |
-| **Hidrix.Application.Tests** | Pruebas unitarias |
+| **Reguemos.Domain** | Entidades `Hidrtb*` (sin dependencias) |
+| **Reguemos.Application** | Casos de uso MediatR, FluentValidation, DTOs, repositorios (contratos) |
+| **Reguemos.Infrastructure** | EF Core SQL Server, repositorios, JWT HS256, Visualiti, geo |
+| **Reguemos.Api** | Controllers `/api/v1`, Swagger, CORS, Serilog → `HidrtbLog` |
+| **Reguemos.Application.Tests** | Pruebas unitarias |
 
 ## Base de datos (SQL Server)
 
@@ -34,7 +34,7 @@ docker compose up -d
 - Contenedor: `hidrix_mssql`
 - Puerto host: `1433`
 - SA (dev, vía Docker): ver `docker-compose.yml` / `.env`
-- Base: **`dbHidrix`** · collation **`Modern_Spanish_CI_AS`**
+- Base: **`dbReguemos`** · collation **`Modern_Spanish_CI_AS`**
 - Imagen: `local/mssql:2019-cu25-15.0.4355.3`
 
 > Si otro contenedor ya usa el 1433, deténgalo o cambie el mapeo.
@@ -73,8 +73,8 @@ cd ws-hidrix
 cp .env.example .env   # editar valores reales
 
 # o con User Secrets:
-cd src/Hidrix.Api
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=dbHidrix;User Id=sa;Password=***;TrustServerCertificate=True;Encrypt=False"
+cd src/Reguemos.Api
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=dbReguemos;User Id=sa;Password=***;TrustServerCertificate=True;Encrypt=False"
 dotnet user-secrets set "Jwt:Secret" "***"
 dotnet user-secrets set "Visualiti:Usuario" "***"
 dotnet user-secrets set "Visualiti:Password" "***"
@@ -93,7 +93,7 @@ export PATH="$HOME/.dotnet:$PATH"
 cd ws-hidrix
 dotnet restore
 dotnet build
-dotnet run --project src/Hidrix.Api --launch-profile http
+dotnet run --project src/Reguemos.Api --launch-profile http
 ```
 
 | Servicio | URL / puerto |
@@ -101,7 +101,7 @@ dotnet run --project src/Hidrix.Api --launch-profile http
 | API HTTP | `http://localhost:5080` (escucha `0.0.0.0:5080`) |
 | Swagger | `http://localhost:5080/swagger` (Development) |
 | Health | `http://localhost:5080/health` |
-| SQL Server | `localhost:1433` · base `dbHidrix` |
+| SQL Server | `localhost:1433` · base `dbReguemos` |
 
 ## App móvil (app-hidrix) — el otro lado
 
@@ -132,7 +132,7 @@ dotnet test
 ## Notas
 
 - Inventario de estaciones/sensores: API Visualiti (`/api/devices`, `/sensor`, `/hardware-status`).
-- Metadatos Hidrix: `HidrtbSensorMeta` (cultivo, finca, CC estimada).
+- Metadatos Reguemos: `HidrtbSensorMeta` (cultivo, finca, CC estimada).
 - Estaciones: `fin-{slug}` (finca) o `sn-M###` (sensor sin finca).
 - Humedad: `Cont Vol1` → sensor_1, `Cont Vol2` → sensor_2; valor ≤ 1.5 → ×100.
 - Irrigation **no** forma parte de este backend (lógica en la app).
@@ -144,8 +144,8 @@ Recursos objetivo: **Azure SQL Database** + **Azure Container Registry** + **Con
 1. Construir la imagen localmente (opcional, para probar):
 
    ```bash
-   docker build -t hidrix-api:local .
-   docker run -p 8080:8080 --env-file .env hidrix-api:local
+   docker build -t reguemos-api:local .
+   docker run -p 8080:8080 --env-file .env reguemos-api:local
    ```
 
    El `Dockerfile` es multi-stage (.NET 9 SDK → runtime `aspnet:9.0`), corre como
@@ -169,8 +169,8 @@ Recursos objetivo: **Azure SQL Database** + **Azure Container Registry** + **Con
 
 3. Inicializar el esquema en la Azure SQL Database creada. **No** uses
    `database/install.sh` ni los `.sql` tal cual: están escritos con
-   `USE [dbHidrix];`, y Azure SQL Database (a) no soporta el statement `USE`
-   para cambiar de base y (b) tu base probablemente no se llama `dbHidrix`.
+   `USE [dbReguemos];`, y Azure SQL Database (a) no soporta el statement `USE`
+   para cambiar de base y (b) tu base probablemente no se llama `dbReguemos`.
    Usa en su lugar:
 
    ```bash
@@ -178,9 +178,9 @@ Recursos objetivo: **Azure SQL Database** + **Azure Container Registry** + **Con
    ./scripts/init-azure-db.sh --reset   # BORRA todos los objetos de la BD y migra desde cero
    ```
 
-   Omite `001_create_database.sql` y `006_rename_to_dbhidrix.sql` (en Azure la BD
+   Omite `001_create_database.sql` y `006_rename_to_dbreguemos.sql` (en Azure la BD
    ya existe con el nombre que le pusiste), le quita el bloque
-   `USE [dbHidrix]; / GO` a los demás y aplica la migración EF de Identity entre
+   `USE [dbReguemos]; / GO` a los demás y aplica la migración EF de Identity entre
    `012_prepare_identity.sql` y `011`/`013`–`017`. Tu IP debe estar permitida en
    el firewall del SQL server.
 

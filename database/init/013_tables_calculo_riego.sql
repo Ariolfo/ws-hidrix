@@ -1,9 +1,9 @@
 /*
   Registros de la calculadora de riego por usuario.
-  Convención DTI Hidrix: Hidrtb* / Prefijo_Campo
-  Autor: AGROSAVIA · Hidrix | 2026-08-12
+  Convención DTI Reguemos: Hidrtb* / Prefijo_Campo
+  Autor: AGROSAVIA · Reguemos | 2026-08-12
 */
-USE [dbHidrix];
+USE [dbReguemos];
 GO
 
 IF OBJECT_ID(N'dbo.HidrtbCalculoRiego', N'U') IS NULL
