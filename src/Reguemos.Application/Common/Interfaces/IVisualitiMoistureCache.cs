@@ -19,6 +19,15 @@ public interface IVisualitiMoistureCache
         Func<CancellationToken, Task<T>> factory,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Comparte una sola ejecución de <paramref name="factory"/> entre llamadas
+    /// simultáneas con la misma clave. La fábrica no se cancela si un llamador se va.
+    /// </summary>
+    Task<T> RunSingleFlightAsync<T>(
+        string key,
+        Func<CancellationToken, Task<T>> factory,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Última lectura cacheada del serial físico.</summary>
     bool TryGetLatest(string physicalSerial, out VisualitiReading? reading);
 

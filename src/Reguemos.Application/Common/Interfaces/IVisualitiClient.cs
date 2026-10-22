@@ -88,7 +88,7 @@ public interface IVisualitiClient
     /// <summary>
     /// Obtiene la última lectura.
     /// Si hay serie histórica en caché, Latest = último punto (sin llamada Visualiti).
-    /// Si no, carga rango 7d (queda en caché) y toma el último punto.
+    /// Si no, pide solo la ventana de 7 días, sin ampliar a 180. Si hay puntos, quedan en el histórico 7d.
     /// </summary>
     /// <param name="sensorSerial">Serial M### o lógico M###-n.</param>
     /// <param name="cancellationToken">Token de cancelación.</param>

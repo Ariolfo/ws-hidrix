@@ -43,4 +43,29 @@ public class HistoryRangeAndCacheTests
         cached.Should().HaveCount(2);
         cache.FindLatestFromHistory("M314")!.Valores[1].Should().Be(30);
     }
+
+    [Fact]
+    public async Task RunSingleFlightAsync_SharesOneFactoryCall()
+    {
+        var cache = new VisualitiMoistureCache();
+        var calls = 0;
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task<int> Factory(CancellationToken _)
+        {
+            Interlocked.Increment(ref calls);
+            await gate.Task;
+            return 54;
+        }
+
+        var first = cache.RunSingleFlightAsync("visualiti-data:54", Factory);
+        var second = cache.RunSingleFlightAsync("visualiti-data:54", Factory);
+
+        await Task.Delay(50);
+        gate.SetResult();
+
+        var results = await Task.WhenAll(first, second);
+        calls.Should().Be(1);
+        results.Should().BeEquivalentTo(new[] { 54, 54 });
+    }
 }

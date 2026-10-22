@@ -66,14 +66,24 @@ public partial class VisualitiClient : IVisualitiClient
 
         try
         {
-            // Sin histórico en caché: un fetch de 7d (queda cacheado) y Latest = último punto.
-            // Evita lookbacks dedicados de 30d/3d solo para un valor.
-            var readings = await FetchMoistureReadingsForRangeAsync(
+            // El mapa solo necesita el último punto. No amplía a 180 días:
+            // esa ampliación queda para el histórico al abrir el sensor.
+            var readings = await FetchLatestWindowOnlyAsync(
                 sensorSerial,
-                "7d",
+                physicalSerial,
                 cancellationToken);
             var latest = readings.LastOrDefault();
+            if (latest is null)
+            {
+                _logger.LogInformation(
+                    "Visualiti sin datos en 7 días para {Serial}; no se amplía a 180 días",
+                    sensorSerial);
+                _cache.SetLatest(physicalSerial, null, TimeSpan.FromSeconds(60));
+                return null;
+            }
+
             _cache.SetLatest(physicalSerial, latest, LatestTtl);
+            _cache.SetHistory(physicalSerial, "7d", readings, HistoryTtl);
             return latest;
         }
         catch (Exception ex)
@@ -380,13 +390,54 @@ public partial class VisualitiClient : IVisualitiClient
         return readings;
     }
 
-    private async Task<List<VisualitiReading>> FetchRawAsync(
+    /// <summary>
+    /// Últimos 7 días, sin el reintento de 180 días del histórico.
+    /// </summary>
+    private async Task<IReadOnlyList<VisualitiReading>> FetchLatestWindowOnlyAsync(
+        string sensorSerial,
+        string physicalSerial,
+        CancellationToken cancellationToken)
+    {
+        if (!_options.Enabled)
+        {
+            return [];
+        }
+
+        var stationNum = ParseVisualitiStationId(physicalSerial);
+        if (stationNum is null)
+        {
+            return [];
+        }
+
+        var timeZoneId = await ResolveTimeZoneForSerialAsync(sensorSerial, cancellationToken);
+        var since = HistoryRangeHelper.ToSince("7d", timeZoneId);
+        return await FetchRawAsync(stationNum.Value, since, timeZoneId, cancellationToken);
+    }
+
+    private Task<List<VisualitiReading>> FetchRawAsync(
         int stationNum,
         DateTimeOffset since,
         string timeZoneId,
         CancellationToken cancellationToken)
     {
-        var token = await GetTokenAsync(cancellationToken);
+        var key = $"visualiti-data:{stationNum}:{since.ToUnixTimeSeconds() / 60}";
+        return _cache.RunSingleFlightAsync(
+            key,
+            _ => FetchRawCoreAsync(stationNum, since, timeZoneId),
+            cancellationToken);
+    }
+
+    private async Task<List<VisualitiReading>> FetchRawCoreAsync(
+        int stationNum,
+        DateTimeOffset since,
+        string timeZoneId)
+    {
+        _logger.LogInformation(
+            "Consultando datos Visualiti estación {Station} desde {Since:u}",
+            stationNum,
+            since);
+
+        var token = await GetTokenAsync(CancellationToken.None);
         if (string.IsNullOrEmpty(token))
         {
             return [];
@@ -399,15 +450,15 @@ public partial class VisualitiClient : IVisualitiClient
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        using var response = await _http.SendAsync(request, cancellationToken);
+        using var response = await _http.SendAsync(request, CancellationToken.None);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Visualiti data {Status} para estación {Station}", response.StatusCode, stationNum);
             return [];
         }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        await using var stream = await response.Content.ReadAsStreamAsync(CancellationToken.None);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: CancellationToken.None);
         return ParsePayload(doc.RootElement, stationNum, timeZoneId);
     }
 

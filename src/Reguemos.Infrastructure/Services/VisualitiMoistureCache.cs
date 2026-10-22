@@ -11,6 +11,7 @@ public sealed class VisualitiMoistureCache : IVisualitiMoistureCache
 {
     private readonly object _tokenLock = new();
     private readonly SemaphoreSlim _exclusiveGate = new(1, 1);
+    private readonly ConcurrentDictionary<string, Task> _singleFlights = new(StringComparer.Ordinal);
     private string? _token;
     private DateTimeOffset _tokenExpiresAt = DateTimeOffset.MinValue;
 
@@ -73,6 +74,43 @@ public sealed class VisualitiMoistureCache : IVisualitiMoistureCache
         finally
         {
             _exclusiveGate.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<T> RunSingleFlightAsync<T>(
+        string key,
+        Func<CancellationToken, Task<T>> factory,
+        CancellationToken cancellationToken = default)
+    {
+        var created = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var race = _singleFlights.GetOrAdd(key, created.Task);
+        if (!ReferenceEquals(race, created.Task))
+        {
+            return await ((Task<T>)race).WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        _ = FinishSingleFlightAsync(key, created, factory);
+        return await created.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task FinishSingleFlightAsync<T>(
+        string key,
+        TaskCompletionSource<T> created,
+        Func<CancellationToken, Task<T>> factory)
+    {
+        try
+        {
+            var result = await factory(CancellationToken.None).ConfigureAwait(false);
+            created.TrySetResult(result);
+        }
+        catch (Exception ex)
+        {
+            created.TrySetException(ex);
+        }
+        finally
+        {
+            _singleFlights.TryRemove(new KeyValuePair<string, Task>(key, created.Task));
         }
     }
 
