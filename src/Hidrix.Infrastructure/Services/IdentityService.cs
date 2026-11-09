@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Hidrix.Application.Common.Interfaces;
 using Hidrix.Infrastructure.Identity;
 using Hidrix.Infrastructure.Options;
+using Hidrix.Infrastructure.Persistence;
 
 namespace Hidrix.Infrastructure.Services;
 
@@ -13,12 +15,17 @@ public class IdentityService : IIdentityService
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly AuthOptions _authOptions;
+    private readonly HidrixDbContext _db;
 
     /// <summary>Inicializa el servicio.</summary>
-    public IdentityService(UserManager<ApplicationUser> userManager, IOptions<AuthOptions> authOptions)
+    public IdentityService(
+        UserManager<ApplicationUser> userManager,
+        IOptions<AuthOptions> authOptions,
+        HidrixDbContext db)
     {
         _userManager = userManager;
         _authOptions = authOptions.Value;
+        _db = db;
     }
 
     /// <inheritdoc />
@@ -167,5 +174,52 @@ public class IdentityService : IIdentityService
         }
 
         return !await _userManager.IsLockedOutAsync(user);
+    }
+
+    /// <inheritdoc />
+    public async Task<DeleteAccountResult> DeleteAccountAsync(
+        string userId,
+        string password,
+        CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return new DeleteAccountResult(false, "Usuario no encontrado.");
+        }
+
+        if (string.IsNullOrEmpty(password) || !await _userManager.CheckPasswordAsync(user, password))
+        {
+            return new DeleteAccountResult(false, "La contraseña no es correcta.", InvalidPassword: true);
+        }
+
+        // Evita dejar el sistema sin administradores.
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
+        {
+            var admins = await _userManager.GetUsersInRoleAsync(AppRoles.Admin);
+            if (admins.Count <= 1)
+            {
+                return new DeleteAccountResult(
+                    false,
+                    "No se puede eliminar la única cuenta de administrador. Asigne otro administrador primero.");
+            }
+        }
+
+        // Las tablas de notas y cálculos tienen FK a HidrtbUsuario sin cascada:
+        // se borran primero, y todo va en una sola transacción.
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+        await _db.NotasEventoRiego.Where(n => n.UsuaId == userId).ExecuteDeleteAsync(ct);
+        await _db.CalculosRiego.Where(c => c.UsuaId == userId).ExecuteDeleteAsync(ct);
+
+        var result = await _userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+        {
+            await tx.RollbackAsync(ct);
+            return new DeleteAccountResult(false, string.Join(" ", result.Errors.Select(e => e.Description)));
+        }
+
+        await tx.CommitAsync(ct);
+        return new DeleteAccountResult(true);
     }
 }

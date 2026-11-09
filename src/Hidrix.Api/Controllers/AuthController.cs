@@ -166,6 +166,43 @@ public class AuthController : ControllerBase
         }));
     }
 
+    /// <summary>Cuerpo para eliminar la cuenta propia.</summary>
+    public sealed class DeleteAccountRequest
+    {
+        /// <summary>Contraseña actual, como confirmación.</summary>
+        public string Password { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Elimina definitivamente la cuenta del usuario autenticado y sus datos
+    /// personales (notas de riego y cálculos). Requerido por App Store / Google Play.
+    /// </summary>
+    [HttpPost("delete-account")]
+    [Authorize]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteAccount(
+        [FromBody] DeleteAccountRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(ApiResponse<object>.Fail("Usuario no autenticado"));
+        }
+
+        var result = await _identity.DeleteAccountAsync(userId, request.Password, cancellationToken);
+        if (!result.Success)
+        {
+            // 400 (no 401) para que el cliente no lo confunda con sesión expirada.
+            return BadRequest(ApiResponse<object>.Fail(result.Error ?? "No se pudo eliminar la cuenta."));
+        }
+
+        _cookies.ClearAuthCookies(Response);
+        return Ok(ApiResponse<object>.Ok(null!, "Cuenta eliminada"));
+    }
+
     /// <summary>
     /// Confirma el correo con el token enviado por email (Identity).
     /// </summary>

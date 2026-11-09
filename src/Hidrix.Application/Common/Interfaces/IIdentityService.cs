@@ -6,6 +6,9 @@ public record RegisterResult(bool Success, string UserId, string[] Errors, bool 
 /// <summary>Resultado de login.</summary>
 public record LoginResult(bool Success, string UserId, string DisplayName, string Email, string[] Roles, string[] Errors);
 
+/// <summary>Resultado de eliminar la cuenta propia.</summary>
+public record DeleteAccountResult(bool Success, string? Error = null, bool InvalidPassword = false);
+
 /// <summary>
 /// Abstracción sobre ASP.NET Core Identity para operaciones de usuario.
 /// </summary>
@@ -43,4 +46,10 @@ public interface IIdentityService
 
     /// <summary>Indica si el usuario puede renovar tokens (activo y no bloqueado).</summary>
     Task<bool> CanRefreshAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Elimina definitivamente la cuenta del usuario y sus datos personales
+    /// (notas de evento de riego y cálculos guardados). Requiere la contraseña.
+    /// </summary>
+    Task<DeleteAccountResult> DeleteAccountAsync(string userId, string password, CancellationToken ct = default);
 }
